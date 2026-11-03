@@ -1,7 +1,9 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
-import { useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
+
+const MotionDiv = motion.div
 import Confetti from 'react-confetti'
 import { auth } from '../lib/firebase.js'
 
@@ -153,6 +155,8 @@ export default function LandingPage() {
   const [frozen, setFrozen] = useState(false)
   const [celebrating, setCelebrating] = useState(false)
   const [boardSize, setBoardSize] = useState({ width: 0, height: 0 })
+  const [climb, setClimb] = useState(false)
+  const motionOk = reduceMotion === false
 
   useEffect(() => {
     const previous = document.title
@@ -174,8 +178,26 @@ export default function LandingPage() {
     return () => clearTimeout(timer)
   }, [celebrating, reduceMotion])
 
+  useEffect(() => {
+    if (!motionOk || frozen || trackId !== 'software') return undefined
+    const timer = setInterval(() => setClimb((value) => !value), 3800)
+    return () => clearInterval(timer)
+  }, [motionOk, frozen, trackId])
+
   const track = TRACKS[trackId]
-  const rows = withTotals(track)
+  const displayTrack = useMemo(() => {
+    if (!climb || !motionOk || frozen || track.id !== 'software') return track
+    return {
+      ...track,
+      teams: track.teams.map((team) => (
+        team.id === 'paper'
+          ? { ...team, scores: { ...team.scores, Build: team.scores.Build + 8 } }
+          : team
+      )),
+    }
+  }, [track, climb, motionOk, frozen])
+  const rows = withTotals(displayTrack)
+  const climbing = climb && motionOk && !frozen && track.id === 'software'
   const startHref = user ? '/dashboard' : '/login?mode=signup'
   const judgeHref = user ? '/assignments' : '/login'
 
@@ -202,8 +224,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-dvh bg-neo-white text-neo-black font-base selection:bg-neo-yellow selection:text-neo-black">
-      <header className="border-b border-neo-black">
-        <div className="mx-auto flex max-w-[1320px] flex-wrap items-center gap-x-6 gap-y-3 px-5 py-3 sm:px-8 lg:px-10">
+      <header className="relative z-20 border-b-4 border-neo-black bg-neo-white">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-6 gap-y-3 px-5 py-3 sm:px-8 xl:px-10">
           <Link to="/" className="mr-auto shrink-0" aria-label="LeadX, home">
             <img src="/Lead-X.png" alt="" className="h-10 w-auto sm:h-14" />
           </Link>
@@ -238,70 +260,83 @@ export default function LandingPage() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-[1320px] gap-8 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] lg:grid-rows-[auto_auto] lg:gap-x-14 lg:gap-y-8 lg:px-10 lg:py-12">
-          <div className="lg:col-start-1 lg:row-start-1">
-            <h1 className="font-hero text-[clamp(3.15rem,5.4vw,4.9rem)] font-medium leading-[0.86] tracking-[-0.045em]">
-              <span className="block">Scores move</span>
-              <span className="block lg:pl-[8%]">in the room.</span>
-            </h1>
-            <p className="mt-6 max-w-[38rem] text-lg leading-relaxed text-zinc-800 sm:text-xl sm:leading-relaxed">
-              LeadX is the public leaderboard for a hackathon or any event scored in rounds, and the desks that feed it. You set the tracks, the rounds, and the rubric. Judges enter scores from their own login. The board ranks each track as those scores are saved.
-            </p>
-            <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <Link
-                to={startHref}
-                className="inline-flex w-full items-center justify-center bg-neo-black px-6 py-3.5 font-hero text-2xl text-white transition-colors hover:bg-neo-yellow hover:text-neo-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neo-black sm:w-auto"
-              >
-                {user ? 'Your events' : 'Start an event'}
-              </Link>
-              <Link
-                to={judgeHref}
-                className="font-semibold underline decoration-neo-black/40 underline-offset-4 hover:decoration-neo-black"
-              >
-                Judge sign-in
-              </Link>
+        <section className="lx-hero">
+          <div className="relative z-10 mx-auto grid max-w-[1440px] gap-6 px-5 py-5 sm:gap-8 sm:px-8 sm:py-10 xl:grid-cols-[minmax(0,36rem)_minmax(0,1fr)] xl:grid-rows-[auto_auto] xl:items-center xl:gap-x-6 xl:gap-y-8 xl:px-10 xl:py-8">
+            <div className="xl:col-start-1 xl:row-start-1">
+              <h1 className="font-hero font-medium leading-[0.78] tracking-[-0.055em]">
+                <span className="block text-[clamp(4.6rem,9.2vw,8.15rem)]">Scores</span>
+                <span className="mt-2 inline-block -rotate-2 border-[5px] border-neo-black bg-neo-yellow px-3 pb-1 text-[clamp(4.6rem,9.2vw,8.15rem)] leading-[0.8] shadow-[10px_10px_0_#111] sm:px-4">
+                  move.
+                </span>
+              </h1>
+              <p className="mt-6 max-w-[28rem] text-lg leading-snug text-zinc-900 sm:mt-8 sm:text-xl">
+                The public board for a hackathon. You set the tracks, rounds, and rubric. Judges score. The ranks follow.
+              </p>
+              <div className="mt-5 flex flex-col items-stretch gap-3 sm:mt-7 sm:flex-row sm:items-center">
+                <Link
+                  to={startHref}
+                  className="inline-flex items-center justify-center gap-3 border-4 border-neo-black bg-neo-yellow px-6 py-3.5 font-hero text-[1.7rem] leading-none shadow-[6px_6px_0_#111] transition-[transform,box-shadow] duration-150 hover:translate-x-[3px] hover:translate-y-[3px] hover:shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neo-black motion-reduce:transition-none motion-reduce:hover:translate-x-0 motion-reduce:hover:translate-y-0 motion-reduce:hover:shadow-[6px_6px_0_#111]"
+                >
+                  {user ? 'Your events' : 'Start an event'}
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link
+                  to={judgeHref}
+                  className="inline-flex items-center justify-center px-1 py-1 text-base font-semibold underline decoration-neo-black/50 underline-offset-4 hover:decoration-neo-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-neo-black sm:border-4 sm:border-neo-black sm:bg-white sm:px-5 sm:py-3.5 sm:font-hero sm:text-[1.35rem] sm:no-underline sm:transition-colors sm:hover:bg-neo-black sm:hover:text-white sm:hover:decoration-transparent"
+                >
+                  Judge sign-in
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1" id="board">
-            <SampleBoard
-              track={track}
-              rows={rows}
-              frozen={frozen}
-              celebrating={celebrating && !reduceMotion}
-              trackId={trackId}
-              onTrack={setTrackId}
-              onMeasure={setBoardSize}
-              boardSize={boardSize}
-            />
-          </div>
-
-          <form onSubmit={openBoard} className="lg:col-start-1 lg:row-start-2">
-            <label htmlFor={codeId} className="block font-hero text-2xl leading-none">
-              Open a public board
-            </label>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-700">
-              Type the event code from the link. Spaces and punctuation become hyphens.
-            </p>
-            <div className="mt-4 flex max-w-md border-b-2 border-neo-black">
-              <input
-                id={codeId}
-                value={eventCode}
-                onChange={(event) => setEventCode(event.target.value)}
-                placeholder="your-event-code"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-                className="min-w-0 flex-1 bg-transparent py-3 font-hero text-xl outline-none placeholder:text-zinc-500"
-              />
-              <button
-                type="submit"
-                className="px-2 font-semibold underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neo-black"
-              >
-                Open
-              </button>
+            <div className="xl:col-start-2 xl:row-span-2 xl:row-start-1" id="board">
+              <div className="relative px-2 pb-3 pt-2 sm:px-4 sm:pb-5 xl:px-8 xl:py-8">
+                <div aria-hidden="true" className="absolute inset-x-3 top-3 bottom-1 border-4 border-neo-black bg-neo-yellow xl:inset-x-6 xl:rotate-[3.5deg]" />
+                <div aria-hidden="true" className="absolute inset-x-5 top-6 bottom-0 border-4 border-neo-black bg-neo-black xl:-rotate-[2deg] xl:inset-x-10" />
+                <div className="relative xl:-rotate-[1.6deg]">
+                  <SampleBoard
+                    track={displayTrack}
+                    rows={rows}
+                    frozen={frozen}
+                    celebrating={celebrating && motionOk}
+                    trackId={trackId}
+                    onTrack={setTrackId}
+                    onMeasure={setBoardSize}
+                    boardSize={boardSize}
+                    climbing={climbing}
+                    animate={motionOk && !frozen}
+                  />
+                </div>
+              </div>
             </div>
-          </form>
+
+            <form onSubmit={openBoard} className="xl:col-start-1 xl:row-start-2">
+              <label htmlFor={codeId} className="block font-hero text-2xl leading-none">
+                Open a public board
+              </label>
+              <p className="mt-2 max-w-md text-sm leading-relaxed text-zinc-700">
+                Type the event code from the link. Spaces and punctuation become hyphens.
+              </p>
+              <div className="mt-4 flex max-w-md border-4 border-neo-black bg-white shadow-[4px_4px_0_#FFD600]">
+                <input
+                  id={codeId}
+                  value={eventCode}
+                  onChange={(event) => setEventCode(event.target.value)}
+                  placeholder="your-event-code"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="min-w-0 flex-1 bg-transparent px-3 py-3 font-hero text-xl outline-none placeholder:text-zinc-500"
+                />
+                <button
+                  type="submit"
+                  className="bg-neo-yellow px-4 font-hero text-xl uppercase tracking-wide focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neo-black"
+                >
+                  Open
+                </button>
+              </div>
+            </form>
+          </div>
         </section>
 
         <p className="border-y border-neo-black bg-neo-black px-5 py-4 text-lg leading-snug text-neo-white sm:px-8 sm:text-2xl lg:px-10">
@@ -469,7 +504,7 @@ export default function LandingPage() {
   )
 }
 
-function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMeasure, boardSize }) {
+function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMeasure, boardSize, climbing, animate }) {
   return (
     <figure className="relative border-4 border-neo-black bg-neo-white">
       <figcaption className="sr-only">
@@ -508,7 +543,7 @@ function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMea
                   <span className="text-[11px] font-black uppercase tracking-[0.14em]">Live data</span>
                 </span>
               )}
-              <p className="mt-3 font-hero text-[2.4rem] uppercase leading-[0.82] tracking-tight sm:text-5xl">
+              <p className="mt-2 font-hero text-[1.85rem] uppercase leading-[0.82] tracking-tight sm:mt-3 sm:text-5xl">
                 <span className="block">Global</span>
                 <span className="mt-1 inline-block -rotate-1 border-4 border-neo-black bg-neo-yellow px-2.5 py-0.5 shadow-[4px_4px_0_#111]">
                   Ranks
@@ -549,23 +584,25 @@ function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMea
               <span className="text-right">{track.bonus}</span>
               <span className="text-right text-neo-yellow">Total</span>
             </div>
-            <div className="mt-2 flex flex-col gap-2">
+            <div key={trackId} className="mt-2 flex flex-col gap-2">
               {rows.map((team) => (
-                <DesktopRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} />
+                <DesktopRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} animate={animate} hot={climbing && team.id === 'paper'} />
               ))}
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-2 md:hidden">
+          <div key={`${trackId}-m`} className="mt-4 flex flex-col gap-2 md:hidden">
             {rows.map((team) => (
-              <MobileRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} />
+              <MobileRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} animate={animate} hot={climbing && team.id === 'paper'} />
             ))}
           </div>
 
           <p className="mt-3 max-w-prose text-sm leading-relaxed text-zinc-700">
-            Sample scores, not a live event. {trackId === 'software'
-              ? 'Paper Kite and Harbor are tied on 81, so both are 2nd and Kiln is 3rd. The ring marks the row that just changed.'
-              : 'No tie on this track, so the places run straight down.'}{' '}
+            Sample scores, not a live event. {trackId !== 'software'
+              ? 'No tie on this track, so the places run straight down.'
+              : climbing
+                ? 'Paper Kite’s Build just rose, so it takes 1st and the rows slide.'
+                : 'Paper Kite and Harbor are tied on 81, so both are 2nd and Kiln is 3rd. The ring marks the row that just changed.'}{' '}
             Pitch, Build, and Bonus are sample column names.
           </p>
         </div>
@@ -574,46 +611,63 @@ function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMea
   )
 }
 
-function DesktopRow({ team, track, marked }) {
+function DesktopRow({ team, track, marked, animate, hot }) {
   return (
-    <div className={`grid grid-cols-[4.2rem_minmax(0,1fr)_3.6rem_3.6rem_4rem_4.6rem] items-center gap-2 border-4 border-neo-black px-3 py-2.5 ${rowSurface(team.rank)} ${marked ? 'ring-4 ring-neo-yellow' : ''}`}>
+    <MotionDiv
+      layout={animate}
+      transition={animate ? { type: 'spring', stiffness: 520, damping: 38, mass: 0.7 } : { duration: 0 }}
+      className={`relative grid grid-cols-[4.2rem_minmax(0,1fr)_3.6rem_3.6rem_4rem_4.6rem] items-center gap-2 border-4 border-neo-black px-3 py-2.5 ${rowSurface(team.rank)} ${marked ? 'z-10 ring-4 ring-neo-yellow' : ''}`}
+    >
       <span className="font-hero text-2xl tabular-nums leading-none">{ordinal(team.rank)}</span>
       <span className="truncate font-hero text-2xl leading-none">{team.name}</span>
       {track.rounds.map((round) => (
-        <span key={round} className="text-right font-hero text-2xl tabular-nums leading-none">{team.scores[round]}</span>
+        <span key={round} className="text-right font-hero text-2xl tabular-nums leading-none">
+          <Pop value={team.scores[round]} hot={hot && round === 'Build'} />
+        </span>
       ))}
       <span className="text-right font-hero text-2xl tabular-nums leading-none">{team.bonus}</span>
       <span className="text-right">
         <span className={`inline-block font-hero text-3xl tabular-nums leading-none ${team.rank === 1 ? '-rotate-2 border-4 border-neo-black bg-white px-1.5 py-0.5 shadow-[3px_3px_0_#111]' : ''}`}>
-          {team.total}
+          <Pop value={team.total} hot={hot} />
         </span>
       </span>
-    </div>
+    </MotionDiv>
   )
 }
 
-function MobileRow({ team, track, marked }) {
+function MobileRow({ team, track, marked, animate, hot }) {
   return (
-    <div className={`border-4 border-neo-black px-3 py-3 ${rowSurface(team.rank)} ${marked ? 'ring-4 ring-neo-yellow' : ''}`}>
+    <MotionDiv
+      layout={animate}
+      transition={animate ? { type: 'spring', stiffness: 520, damping: 38, mass: 0.7 } : { duration: 0 }}
+      className={`relative border-4 border-neo-black px-3 py-3 ${rowSurface(team.rank)} ${marked ? 'z-10 ring-4 ring-neo-yellow' : ''}`}
+    >
       <div className="flex items-center gap-3">
         <span className="font-hero text-3xl tabular-nums leading-none">{ordinal(team.rank)}</span>
         <span className="min-w-0 flex-1 truncate font-hero text-2xl leading-none">{team.name}</span>
         <span className={`font-hero text-3xl tabular-nums leading-none ${team.rank === 1 ? '-rotate-2 border-2 border-neo-black bg-white px-1.5' : ''}`}>
-          {team.total}
+          <Pop value={team.total} hot={hot} />
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {track.rounds.map((round) => (
           <span key={round} className="border-2 border-neo-black bg-neo-white px-2 py-1 text-[11px] font-bold uppercase tracking-wider">
-            {round} <span className="font-hero text-base normal-case tracking-normal">{team.scores[round]}</span>
+            {round}{' '}
+            <span className="font-hero text-base normal-case tracking-normal">
+              <Pop value={team.scores[round]} hot={hot && round === 'Build'} />
+            </span>
           </span>
         ))}
         <span className="border-2 border-neo-black bg-neo-white px-2 py-1 text-[11px] font-bold uppercase tracking-wider">
           {track.bonus} <span className="font-hero text-base normal-case tracking-normal">{team.bonus}</span>
         </span>
       </div>
-    </div>
+    </MotionDiv>
   )
+}
+
+function Pop({ value, hot }) {
+  return <span key={value} className={hot ? 'lx-pop inline-block' : 'inline-block'}>{value}</span>
 }
 
 function JudgeRound({ title, total, locked, rows }) {

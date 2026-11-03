@@ -97,3 +97,38 @@
     animation-duration: 22s;
   }
 }
+
+/* Landing hero: print grid plus a light paper grain. Scoped so the rest of the app stays as it is. */
+.lx-hero {
+  position: relative;
+  background-color: #f4f4f0;
+  background-image:
+    linear-gradient(rgba(17, 17, 17, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.08) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.lx-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.2;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+@keyframes lx-pop {
+  0% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.lx-pop {
+  animation: lx-pop 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lx-pop {
+    animation: none;
+  }
+}
