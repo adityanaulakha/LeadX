@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useWindowSize } from 'react-use'
 import useTeamsRealtime from '../hooks/useTeamsRealtime.js'
 import { useAuthState } from './AdminPage.jsx'
+import { Button, Card, Loading, PageShell } from '../ui/ui.jsx'
 
 const MotionDiv = motion.div
 
@@ -70,18 +71,18 @@ export default function PodiumPage() {
   }
 
   // Wait for user state to load
-  if (user === undefined) return <div className="h-dvh bg-neo-white flex items-center justify-center font-hero text-4xl animate-pulse text-neo-black border-4 border-neo-black shadow-brutal p-8 m-8">INITIALIZING SECURE FEED...</div>
-  // Handle unauthorized users
+  if (user === undefined) return <Loading label="Loading" />
   if (user === null) {
     return (
-      <div className="min-h-dvh bg-neo-white flex flex-col items-center justify-center text-center p-8 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px]"></div>
-        <div className="relative z-10 border-4 border-neo-black bg-neo-white p-6 sm:p-12 shadow-[12px_12px_0_#111]">
-          <div className="font-hero text-4xl sm:text-6xl text-neo-black mb-4 uppercase bg-neo-red px-4 sm:px-6 py-2 border-4 border-neo-black shadow-[6px_6px_0_#111] inline-block -rotate-2">ACCESS DENIED</div>
-          <p className="text-neo-black font-black tracking-widest uppercase mb-8 mt-6">You must be authenticated as an Admin to enter Podium Mode.</p>
-          <Link to={`/${hackathonId}/admin`} className="px-5 sm:px-8 py-4 border-4 border-neo-black bg-neo-yellow text-neo-black font-hero text-xl sm:text-3xl uppercase hover:-translate-y-1 shadow-[6px_6px_0_#111] hover:shadow-[8px_8px_0_#111] transition-all inline-block text-center">Go to Admin Portal to Login</Link>
+      <PageShell>
+        <div className="flex min-h-dvh items-center justify-center px-5">
+          <Card className="max-w-md p-6 text-center">
+            <h1 className="font-hero text-3xl tracking-[-0.03em]">Sign in required</h1>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-700">The podium is opened from an organizer account.</p>
+            <Button to={`/${hackathonId}/admin`} className="mt-5">Go to admin</Button>
+          </Card>
         </div>
-      </div>
+      </PageShell>
     )
   }
 
@@ -91,14 +92,14 @@ export default function PodiumPage() {
       <div className="min-h-dvh bg-neo-white flex flex-col items-center justify-center p-8 relative overflow-hidden text-center">
         <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px] pointer-events-none"></div>
         
-        <MotionDiv initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 w-full max-w-2xl border-4 border-neo-black bg-white p-6 sm:p-10 lg:p-14 shadow-[12px_12px_0_#111]">
+        <MotionDiv initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative z-10 w-full max-w-2xl border-2 border-neo-black bg-white p-6 sm:p-10 lg:p-14 shadow-[4px_4px_0_#111]">
           <h1 className="font-hero text-4xl sm:text-6xl uppercase tracking-wide sm:tracking-widest text-neo-black drop-shadow-[4px_4px_0_#FFD600] mb-2">PODIUM MODE</h1>
-          <p className="text-neo-red font-black uppercase tracking-widest mb-10 border-b-4 border-neo-black pb-4">Admin Ceremony Control Setup</p>
+          <p className="text-neo-red font-black uppercase tracking-widest mb-10 border-b-2 border-neo-black pb-4">Admin Ceremony Control Setup</p>
 
           <form onSubmit={handleStart} className="flex flex-col gap-8 text-left">
             <div className="flex flex-col gap-3">
               <label className="font-hero text-xl sm:text-3xl uppercase text-neo-black">Select Track</label>
-              <select value={ceremonyTrack} onChange={e => setCeremonyTrack(e.target.value)} className="border-4 border-neo-black bg-neo-white p-4 font-hero text-xl sm:text-3xl uppercase text-neo-black outline-none focus:bg-neo-yellow transition-colors cursor-pointer shadow-[4px_4px_0_#111]">
+              <select value={ceremonyTrack} onChange={e => setCeremonyTrack(e.target.value)} className="border-2 border-neo-black bg-neo-white p-4 font-hero text-xl sm:text-3xl uppercase text-neo-black outline-none focus:bg-neo-yellow transition-colors cursor-pointer shadow-[4px_4px_0_#111]">
                 {tracks?.map(t => (
                   <option key={t.id} value={t.id}>{t.name.toUpperCase()} TRACK</option>
                 ))}
@@ -107,10 +108,10 @@ export default function PodiumPage() {
 
             <div className="flex flex-col gap-3">
               <label className="font-hero text-xl sm:text-3xl uppercase text-neo-black">Ranks To Reveal</label>
-              <input type="number" min="1" max="50" value={ranksToReveal} onChange={e => setRanksToReveal(Number(e.target.value))} className="border-4 border-neo-black bg-neo-white p-4 font-hero text-xl sm:text-3xl uppercase text-neo-black outline-none focus:bg-neo-yellow transition-colors shadow-[4px_4px_0_#111]" />
+              <input type="number" min="1" max="50" value={ranksToReveal} onChange={e => setRanksToReveal(Number(e.target.value))} className="border-2 border-neo-black bg-neo-white p-4 font-hero text-xl sm:text-3xl uppercase text-neo-black outline-none focus:bg-neo-yellow transition-colors shadow-[4px_4px_0_#111]" />
             </div>
 
-            <button type="submit" className="mt-4 bg-neo-black border-4 border-neo-black w-full py-5 sm:py-6 font-hero text-2xl sm:text-4xl uppercase tracking-wide sm:tracking-widest text-neo-white shadow-[8px_8px_0_#FFD600] hover:-translate-y-2 hover:shadow-[12px_12px_0_#FFD600] transition-all">
+            <button type="submit" className="mt-4 bg-neo-black border-2 border-neo-black w-full py-5 sm:py-6 font-hero text-2xl sm:text-4xl uppercase tracking-wide sm:tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-2 hover:shadow-[4px_4px_0_#FFD600] transition-all">
               Initialize Ceremony Sequence
             </button>
             <Link to={`/${hackathonId}/admin`} className="text-center font-black text-sm text-neo-black uppercase hover:text-neo-red transition-colors underline underline-offset-4 mt-2 tracking-widest">ESCAPE BACK TO ADMIN PORTAL</Link>
@@ -156,7 +157,7 @@ export default function PodiumPage() {
 
       {/* Exit Button */}
       <div className="absolute top-4 sm:top-8 left-4 sm:left-8 z-50 opacity-50 hover:opacity-100 transition-opacity">
-        <button onClick={() => setCeremonyStarted(false)} className="bg-white border-4 border-neo-black text-neo-black px-3 sm:px-4 py-2 font-hero text-sm sm:text-xl uppercase tracking-wide sm:tracking-widest shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all">EXIT CEREMONY</button>
+        <button onClick={() => setCeremonyStarted(false)} className="bg-white border-2 border-neo-black text-neo-black px-3 sm:px-4 py-2 font-hero text-sm sm:text-xl uppercase tracking-wide sm:tracking-widest shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all">EXIT CEREMONY</button>
       </div>
 
       {/* Header and Prompt */}
@@ -165,9 +166,9 @@ export default function PodiumPage() {
           {tracks?.find(t => t.id === ceremonyTrack)?.name || ceremonyTrack} Track
         </h2>
         {revealedCount === 0 ? (
-          <p className="font-hero text-base sm:text-2xl uppercase text-neo-black mt-6 tracking-wide sm:tracking-widest bg-neo-yellow border-4 border-neo-black px-4 sm:px-6 py-2 animate-pulse shadow-[6px_6px_0_#111]">COMMENCE SEQUENCE [PRESS SPACEBAR]</p>
+          <p className="font-hero text-base sm:text-2xl uppercase text-neo-black mt-6 tracking-wide sm:tracking-widest bg-neo-yellow border-2 border-neo-black px-4 sm:px-6 py-2 animate-pulse shadow-[4px_4px_0_#111]">COMMENCE SEQUENCE [PRESS SPACEBAR]</p>
         ) : revealedCount < ranksToReveal ? (
-           <p className="font-hero text-sm sm:text-xl uppercase text-neo-black mt-4 tracking-wide sm:tracking-widest border-4 border-neo-black bg-white px-4 py-1 shadow-[4px_4px_0_#111]">[PRESS SPACEBAR TO REVEAL NEXT]</p>
+           <p className="font-hero text-sm sm:text-xl uppercase text-neo-black mt-4 tracking-wide sm:tracking-widest border-2 border-neo-black bg-white px-4 py-1 shadow-[4px_4px_0_#111]">[PRESS SPACEBAR TO REVEAL NEXT]</p>
         ) : null}
       </div>
 
@@ -202,7 +203,7 @@ export default function PodiumPage() {
                 style={{ height: `${baseHeight}vh` }}
               >
                 {/* Team Info Card sitting perpetually ON TOP of the pedestal */}
-                <div className={`relative z-20 w-full border-4 lg:border-8 flex flex-col items-center justify-center -mb-2 ${themeBorder} ${themeBg} py-6 lg:py-10 px-2 lg:px-6 shadow-[12px_12px_0_#111]`}>
+                <div className={`relative z-20 w-full border-2 lg:border-2 flex flex-col items-center justify-center -mb-2 ${themeBorder} ${themeBg} py-6 lg:py-10 px-2 lg:px-6 shadow-[4px_4px_0_#111]`}>
                   
                   {isFirst && isVisible && (
                     <div className="absolute -inset-4 border-8 border-neo-black animate-[pulse_1.5s_ease-in-out_infinite] z-[-1] pointer-events-none"></div>
@@ -211,20 +212,20 @@ export default function PodiumPage() {
                   <div className={`font-hero text-6xl lg:text-8xl tracking-tighter drop-shadow-[4px_4px_0_#FFF] mb-2 ${themeText}`}>#{rank}</div>
                   
                   <div className="text-center w-full mb-4 px-2">
-                    <h3 className="font-hero text-3xl lg:text-5xl uppercase tracking-wider text-neo-black drop-shadow-[2px_2px_0_#FFF] leading-tight text-wrap-balance break-words bg-white/50 px-2 py-1 border-2 border-neo-black">
+                    <h3 className="font-hero text-3xl lg:text-5xl uppercase tracking-wider text-neo-black drop-shadow-[2px_2px_0_#FFF] leading-tight text-wrap-balance break-words bg-white px-2 py-1 border-2 border-neo-black">
                       {medal} {name}
                     </h3>
                   </div>
 
-                  <div className={`font-hero text-5xl lg:text-7xl drop-shadow-[4px_4px_0_#FFF] mt-auto ${themeText} bg-white px-4 py-2 border-4 border-neo-black`}>
+                  <div className={`font-hero text-5xl lg:text-7xl drop-shadow-[4px_4px_0_#FFF] mt-auto ${themeText} bg-white px-4 py-2 border-2 border-neo-black`}>
                     {Number(total).toFixed(1)}
                   </div>
                 </div>
 
                 {/* The Solid Pedestal Block */}
-                <div className={`w-[90%] border-x-4 border-t-4 border-b-0 ${themeBorder} ${themeBg} flex-1 relative flex justify-center shadow-[inset_0_20px_50px_rgba(0,0,0,0.2)]`}>
+                <div className={`w-[90%] border-x-2 border-t-2 border-b-0 ${themeBorder} ${themeBg} flex-1 relative flex justify-center shadow-[inset_0_20px_50px_rgba(0,0,0,0.2)]`}>
                    {/* Cool inner pedestal sci-fi styling */}
-                   <div className="w-1/3 h-full bg-neo-black/10 border-x-4 border-neo-black"></div>
+                   <div className="w-1/3 h-full bg-neo-black/10 border-x-2 border-neo-black"></div>
                 </div>
               </MotionDiv>
             )

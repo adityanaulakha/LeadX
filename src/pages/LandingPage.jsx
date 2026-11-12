@@ -1,617 +1,699 @@
-import { motion } from 'framer-motion'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { auth } from '../lib/firebase.js'
 import { signOut } from 'firebase/auth'
+import { motion, useReducedMotion } from 'framer-motion'
+import Confetti from 'react-confetti'
+import { auth } from '../lib/firebase.js'
+
+const MotionDiv = motion.div
+
+const shell = 'mx-auto w-full max-w-[1280px] px-5 sm:px-8'
+const focus = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neo-black'
+const btn = `lx-press inline-flex min-h-11 items-center justify-center gap-2 border-2 border-neo-black px-5 py-2.5 font-hero text-xl leading-none ${focus}`
+const btnYellow = `${btn} bg-neo-yellow hover:bg-[#ffe34a]`
+const btnWhite = `${btn} bg-white hover:bg-neo-lightgray`
+const btnInk = `${btn} bg-neo-black text-white hover:bg-neo-yellow hover:text-neo-black`
+const navLink = `whitespace-nowrap text-[13px] font-semibold text-zinc-800 underline-offset-4 transition-colors hover:text-neo-black hover:underline sm:text-sm ${focus}`
+const sectionTitle = 'max-w-[16ch] font-hero text-[clamp(2.15rem,4vw,3.15rem)] font-medium leading-[0.96] tracking-[-0.035em]'
+const prose = 'text-[1.0625rem] leading-[1.65] text-zinc-800'
+const caption = 'text-[0.8125rem] leading-relaxed text-zinc-600'
+
+const TRACKS = {
+  software: {
+    id: 'software',
+    name: 'Software',
+    rounds: ['Pitch', 'Build'],
+    bonus: 'Bonus',
+    teams: [
+      { id: 'northline', name: 'Northline', scores: { Pitch: 28, Build: 46 }, bonus: 12 },
+      { id: 'paper', name: 'Paper Kite', scores: { Pitch: 30, Build: 41 }, bonus: 10 },
+      { id: 'harbor', name: 'Harbor', scores: { Pitch: 26, Build: 45 }, bonus: 10 },
+      { id: 'kiln', name: 'Kiln', scores: { Pitch: 22, Build: 40 }, bonus: 8 },
+    ],
+  },
+  hardware: {
+    id: 'hardware',
+    name: 'Hardware',
+    rounds: ['Pitch', 'Build'],
+    bonus: 'Bonus',
+    teams: [
+      { id: 'lattice', name: 'Lattice', scores: { Pitch: 34, Build: 48 }, bonus: 8 },
+      { id: 'copper', name: 'Copper', scores: { Pitch: 29, Build: 40 }, bonus: 8 },
+      { id: 'field', name: 'Field Note', scores: { Pitch: 24, Build: 39 }, bonus: 8 },
+    ],
+  },
+}
+
+const TRACK_ORDER = ['software', 'hardware']
+
+const RULES = [
+  {
+    term: 'Dense ranks',
+    detail:
+      'A tie shares a place. The next team takes the next number, so two second-place scores are followed by third, not fourth.',
+  },
+  {
+    term: 'One track',
+    detail:
+      'Every team sits on a single track. The public page shows one track at a time and keeps the others off that view.',
+  },
+  {
+    term: 'Rounds',
+    detail:
+      'Each round is a column. The number is that round’s stored total — the sum of the rubric when a rubric exists, or one number when it does not.',
+  },
+  {
+    term: 'Bonuses',
+    detail:
+      'Bonuses are extra columns the organizer names. The value on a team is added into the total beside the rounds.',
+  },
+  {
+    term: 'Live',
+    detail:
+      'The page subscribes to the event. When a score is saved, open boards follow it, and the row that changed is marked.',
+  },
+  {
+    term: 'Frozen',
+    detail:
+      'Freeze holds the public rows where they are. It does not stop judges from scoring. The board says so, in place of the live mark.',
+  },
+  {
+    term: 'Reveal',
+    detail:
+      'Celebrate turns the freeze off and plays confetti on every open public board for 15 seconds.',
+  },
+  {
+    term: 'Podium',
+    detail:
+      'The podium page, opened from the admin panel, steps through places for a chosen track. Space, Enter, or the right arrow reveals the next place. The left arrow goes back. Escape leaves.',
+  },
+]
+
+const ORDER = [
+  {
+    n: '01',
+    title: 'Name the event',
+    body: 'The dashboard lists the events on the account. A new event needs a name and a code. That code is the public address: the landing page turns it into the board’s link.',
+  },
+  {
+    n: '02',
+    title: 'Set the scoring',
+    body: 'Add tracks, then the rounds on each track. Rounds can be renamed and reordered. A rubric is a list of criteria for one track and one round, each with a label and a maximum. Add judges and assign a track. Add teams by hand, or from a CSV — name is required, track is optional, and a column headed with a round name is imported as a score. Deleting a track downloads that track’s teams first.',
+  },
+  {
+    n: '03',
+    title: 'Let the judges work',
+    body: 'A judge signs in and opens the events they were added to. They filter by track, round, and whether a team is still pending, then enter each criterion up to its maximum. Saving writes that judge’s scores. A locked round refuses the change.',
+  },
+  {
+    n: '04',
+    title: 'Put it on the wall',
+    body: 'Anyone with the link sees the selected track, the round columns, the bonuses, and the total. Switching tracks stays on the same page. Tied totals share a rank.',
+  },
+  {
+    n: '05',
+    title: 'Hold, then reveal',
+    body: 'Freeze when the last scores should stay off the projector. Judges can keep working. Reveal & celebrate clears the freeze and fires confetti on the open boards for 15 seconds. The podium page is there for the stage.',
+  },
+]
+
+const ADMIN_TABS = [
+  'Edit bonuses',
+  'Manage rubrics',
+  'Manage judges',
+  'Manage teams',
+  'Tracks & rounds',
+  'Score viewer',
+]
+
+function ordinal(rank) {
+  if (rank === 1) return '1st'
+  if (rank === 2) return '2nd'
+  if (rank === 3) return '3rd'
+  return `${rank}th`
+}
+
+function withTotals(track) {
+  const teams = track.teams
+    .map((team) => ({
+      ...team,
+      total: track.rounds.reduce((sum, round) => sum + team.scores[round], 0) + team.bonus,
+    }))
+    .sort((a, b) => b.total - a.total)
+
+  let current = 1
+  const ranks = teams.map((team, index) => {
+    if (index > 0 && team.total < teams[index - 1].total) current += 1
+    return current
+  })
+
+  return teams.map((team, index) => ({ ...team, rank: ranks[index] }))
+}
+
+function rowSurface(rank) {
+  if (rank === 1) return 'bg-neo-yellow text-neo-black'
+  if (rank === 3) return 'bg-neo-lightgray text-neo-black'
+  return 'bg-white text-neo-black'
+}
 
 export default function LandingPage() {
-  const [user, setUser] = useState(undefined)
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [activeTab, setActiveTab] = useState('design') // For interactive Rubrics widget
-  const [eventCode, setEventCode] = useState('')
   const navigate = useNavigate()
+  const reduceMotion = useReducedMotion()
+  const codeId = useId()
+  const [user, setUser] = useState(undefined)
+  const [eventCode, setEventCode] = useState('')
+  const [trackId, setTrackId] = useState('software')
+  const [frozen, setFrozen] = useState(false)
+  const [celebrating, setCelebrating] = useState(false)
+  const [boardSize, setBoardSize] = useState({ width: 0, height: 0 })
+  const [climb, setClimb] = useState(false)
+  const motionOk = reduceMotion === false
 
-  const handleFindLeaderboard = (e) => {
-    e.preventDefault()
-    if (!eventCode.trim()) return
-    const formattedId = eventCode.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')
-    navigate(`/${formattedId}`)
-  }
+  useEffect(() => {
+    const previous = document.title
+    document.title = 'LeadX — live leaderboard for a judged event'
+    return () => {
+      document.title = previous
+    }
+  }, [])
 
   useEffect(() => {
     if (!auth) return undefined
-    const unsub = auth.onAuthStateChanged((u) => setUser(u))
+    const unsub = auth.onAuthStateChanged((next) => setUser(next))
     return () => unsub()
   }, [])
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
+    if (!celebrating) return undefined
+    const timer = setTimeout(() => setCelebrating(false), reduceMotion ? 1600 : 4200)
+    return () => clearTimeout(timer)
+  }, [celebrating, reduceMotion])
+
+  useEffect(() => {
+    if (!motionOk || frozen || trackId !== 'software') return undefined
+    const timer = setInterval(() => setClimb((value) => !value), 3800)
+    return () => clearInterval(timer)
+  }, [motionOk, frozen, trackId])
+
+  const track = TRACKS[trackId]
+  const displayTrack = useMemo(() => {
+    if (!climb || !motionOk || frozen || track.id !== 'software') return track
+    return {
+      ...track,
+      teams: track.teams.map((team) => (
+        team.id === 'paper'
+          ? { ...team, scores: { ...team.scores, Build: team.scores.Build + 8 } }
+          : team
+      )),
     }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [track, climb, motionOk, frozen])
+  const rows = withTotals(displayTrack)
+  const climbing = climb && motionOk && !frozen && track.id === 'software'
+  const startHref = user ? '/dashboard' : '/login?mode=signup'
+  const judgeHref = user ? '/assignments' : '/login'
 
-  const trustedBy = [
-    { name: "INC42", color: "bg-green-400" },
-    { name: "IIT BOMBAY", color: "bg-neo-yellow" },
-    { name: "NULLCON", color: "bg-neo-red text-white" },
-    { name: "DEVFOLIO", color: "bg-white" },
-    { name: "ETH INDIA", color: "bg-neo-lightgray" },
-    { name: "SMART INDIA HACKATHON", color: "bg-[#FF9933] text-white" }
-  ]
+  function openBoard(event) {
+    event.preventDefault()
+    const formattedId = eventCode
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    if (!formattedId) return
+    navigate(`/${formattedId}`)
+  }
 
-  const testimonials = [
-    {
-      name: "Neha Sharma",
-      handle: "@neha_codes",
-      role: "Lead Organizer, ETHIndia",
-      text: "LeadX completely removed the chaos of judging. Our mentors just opened the link and started grading. No spreadsheets, zero panic.",
-      stars: 5,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Neha"
-    },
-    {
-      name: "Dr. Arjun Patel",
-      handle: "@arjun_cse",
-      role: "Head of CSE, IIT Madras",
-      text: "The suspense mode where the leaderboard freezes during final evaluations... brilliant. It made our closing ceremony incredibly hype.",
-      stars: 5,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun"
-    },
-    {
-      name: "Ishaan Verma",
-      handle: "@ishaan_builds",
-      role: "Community Lead, Devfolio",
-      text: "Finally, a platform that doesn't look like it was built in 2005. LeadX is fast, brutal, and does exactly what it promises.",
-      stars: 5,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Ishaan"
-    }
-  ]
+  function toggleFreeze() {
+    setFrozen((value) => !value)
+    setCelebrating(false)
+  }
 
-  const fadeUp = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  function celebrate() {
+    setFrozen(false)
+    setCelebrating(true)
   }
 
   return (
-    <div className="min-h-screen bg-neo-white flex flex-col font-base text-neo-black overflow-x-hidden selection:bg-neo-yellow selection:text-neo-black">
-
-      {/* Navigation */}
-      <nav className={`w-full max-w-full flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b-4 border-neo-black bg-neo-white z-50 fixed top-0 transition-all duration-300 ${isScrolled ? 'shadow-[4px_4px_0_#111] py-2.5 sm:py-3 bg-white' : ''}`}>
-        <div
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="font-hero text-2xl lg:text-3xl font-black tracking-widest flex items-center gap-2 relative z-10 hover:scale-105 transition-transform cursor-pointer"
-        >
-          <img src="/Lead-X.png" alt="LeadX Logo" className="h-10 sm:h-12 lg:h-16 drop-shadow-[2px_2px_0_#111]" />
-        </div>
-        <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8 font-black uppercase text-sm tracking-wider">
-          <a href="#features" className="hover:text-neo-yellow transition-colors underline-offset-4 hover:underline">Features</a>
-          <a href="#workflow" className="hover:text-neo-yellow transition-colors underline-offset-4 hover:underline">Workflow</a>
-          <a href="#testimonials" className="hover:text-neo-yellow transition-colors underline-offset-4 hover:underline">Wall of Love</a>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-4 lg:gap-8 relative z-10">
-          {user ? (
-            <>
-              <button onClick={() => signOut(auth)} className="font-black text-sm lg:text-base uppercase tracking-widest hover:text-neo-red transition-colors hidden sm:block">
-                SIGN OUT
+    <div className="min-h-dvh overflow-x-clip bg-neo-white font-base text-neo-black selection:bg-neo-yellow selection:text-neo-black">
+      <header className="sticky top-0 z-30 border-b-2 border-neo-black bg-neo-white">
+        <div className={`${shell} flex flex-wrap items-center gap-x-5 gap-y-2 py-2.5`}>
+          <Link to="/" className={`mr-auto shrink-0 rounded-sm ${focus}`} aria-label="LeadX, home">
+            <img src="/Lead-X.png" alt="" className="h-9 w-auto sm:h-11" />
+          </Link>
+          <nav aria-label="Page" className="order-last flex w-full gap-x-4 sm:order-none sm:w-auto">
+            <a className={navLink} href="#board">Board</a>
+            <a className={navLink} href="#desks">Desks</a>
+            <a className={navLink} href="#order">Order</a>
+            <Link className={navLink} to="/docs">Docs</Link>
+          </nav>
+          <div className="flex items-center gap-3 sm:gap-4">
+            {user ? (
+              <button type="button" onClick={() => signOut(auth)} className={navLink}>
+                Sign out
               </button>
-              <Link
-                to="/dashboard"
-                className="font-black text-xs sm:text-sm lg:text-base uppercase tracking-wider sm:tracking-widest bg-neo-yellow border-4 border-neo-black px-3 sm:px-6 py-2 shadow-[4px_4px_0_#111] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center gap-2"
-              >
-                DASHBOARD
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="font-black text-sm lg:text-base uppercase tracking-widest hover:underline underline-offset-8 transition-all hidden sm:block">
-                LOG IN
-              </Link>
-              <Link
-                to="/login?mode=signup"
-                className="font-black text-xs sm:text-sm lg:text-base uppercase tracking-wider sm:tracking-widest bg-neo-yellow border-4 border-neo-black px-3 sm:px-6 py-2 shadow-[4px_4px_0_#111] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex items-center gap-2"
-              >
-                GET STARTED
-              </Link>
-            </>
-          )}
+            ) : (
+              <Link to="/login" className={navLink}>Log in</Link>
+            )}
+            <Link to={startHref} className={`lx-press lx-press-sm inline-flex min-h-9 items-center border-2 border-neo-black bg-neo-yellow px-3 py-1.5 text-sm font-semibold leading-none hover:bg-[#ffe34a] ${focus}`}>
+              {user ? 'Your events' : 'Start an event'}
+            </Link>
+          </div>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Hero Section */}
-      <main className="flex-1 flex flex-col items-center justify-start text-center px-4 pt-32 lg:pt-40 pb-24 relative z-10 w-full max-w-7xl mx-auto mt-16">
-
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.15 } }
-          }}
-          className="flex flex-col items-center w-full relative"
-        >
-          {/* Floating Stickers/Decorations */}
-          <motion.div variants={fadeUp} className="absolute -top-10 left-4 sm:left-10 lg:left-20 animate-[spin_10s_linear_infinite] z-0 hidden sm:block pointer-events-none">
-            <svg width="100" height="100" viewBox="0 0 100 100" className="fill-neo-yellow drop-shadow-[4px_4px_0_#111]">
-              <path d="M50 0 L60 40 L100 50 L60 60 L50 100 L40 60 L0 50 L40 40 Z" />
-            </svg>
-          </motion.div>
-          <motion.div variants={fadeUp} className="absolute top-40 -right-4 sm:-right-10 lg:-right-10 z-20 hidden lg:block rotate-12 hover:rotate-0 transition-transform cursor-pointer">
-            <div className="bg-neo-red text-white border-4 border-neo-black font-black uppercase tracking-widest px-4 py-2 shadow-[4px_4px_0_#111] whitespace-nowrap text-xl">
-              V2.0 LIVE FIRE 🔥
-            </div>
-          </motion.div>
-
-          {/* Pill Tag */}
-          <motion.div variants={fadeUp} className="border-4 border-neo-black px-6 py-2 font-black text-xs sm:text-sm uppercase tracking-[0.2em] mb-10 inline-flex items-center gap-3 bg-white shadow-[4px_4px_0_#111] hover:-translate-y-1 transition-transform relative z-10 cursor-default">
-            <div className="w-3 h-3 border-2 border-neo-black bg-green-400 animate-pulse"></div>
-            THE PREMIUM SCORING PROTOCOL
-          </motion.div>
-
-          {/* Headline */}
-          <motion.h1 variants={fadeUp} className="font-hero text-[2.8rem] sm:text-[4.5rem] md:text-[6rem] lg:text-[7.5rem] xl:text-[9rem] leading-[0.9] sm:leading-[0.85] tracking-tight uppercase text-neo-black flex flex-col items-center z-10 relative">
-            <span className="block drop-shadow-[4px_4px_0_#FFF] relative">
-              <span className="absolute -inset-1 text-neo-yellow opacity-50 blur-sm mix-blend-multiply pointer-events-none">COMPETITIVE</span>
-              COMPETITIVE
-            </span>
-            <div className="relative inline-block my-2 sm:my-4 group">
-              {/* Shadow Layer */}
-              <div className="absolute inset-0 bg-neo-black translate-x-2 translate-y-2 sm:translate-x-4 sm:translate-y-4 transition-transform group-hover:translate-x-0 group-hover:translate-y-0 duration-300"></div>
-              {/* Top Layer */}
-              <span className="relative inline-block bg-neo-yellow border-[4px] sm:border-[6px] border-neo-black px-6 sm:px-10 py-1 -rotate-2 group-hover:rotate-0 group-hover:-translate-y-2 group-hover:-translate-x-2 transition-all duration-300">
-                SCORING
-              </span>
-            </div>
-            <span className="block drop-shadow-[4px_4px_0_#FFF]">MASTERED.</span>
-          </motion.h1>
-
-          {/* Subheadline & Social Proof */}
-          <motion.div variants={fadeUp} className="mt-12 max-w-3xl px-4 text-center z-10 flex flex-col items-center">
-            <p className="text-base sm:text-2xl font-bold leading-relaxed text-zinc-800 tracking-wide sm:tracking-wider">
-              Never lose track of live ranks, judge evaluations, or dynamic leaderboards. Standardize your competitive events with absolute precision and raw efficiency.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center gap-4 mt-8 bg-white border-4 border-neo-black px-6 py-3 shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all cursor-default">
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <img key={i} src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 50}&backgroundColor=b6e3f4,c0aede,d1d4f9`} alt="avatar" className="w-10 h-10 rounded-full border-2 border-neo-black bg-neo-lightgray" />
-                ))}
-              </div>
-              <div className="font-black text-sm uppercase tracking-widest text-center sm:text-left leading-tight">
-                Trusted by 500+ <br /> Organizers
+      <main>
+        <section className="lx-hero">
+          <div className={`${shell} relative z-10 grid gap-8 py-7 sm:py-12 xl:grid-cols-[minmax(0,34rem)_minmax(0,1fr)] xl:grid-rows-[auto_auto] xl:items-center xl:gap-x-10 xl:gap-y-8 xl:py-14`}>
+            <div className="xl:col-start-1 xl:row-start-1">
+              <h1 className="font-hero font-medium leading-[0.8] tracking-[-0.05em]">
+                <span className="block text-[clamp(4.1rem,8.2vw,7.25rem)]">Scores</span>
+                <span className="mt-2 inline-block -rotate-1 border-[3px] border-neo-black bg-neo-yellow px-2.5 pb-1 text-[clamp(4.1rem,8.2vw,7.25rem)] leading-[0.82] shadow-[6px_6px_0_#111] sm:px-3.5">
+                  move.
+                </span>
+              </h1>
+              <p className={`mt-6 max-w-[28rem] sm:mt-8 ${prose}`}>
+                The public board for a hackathon. You set the tracks, rounds, and rubric. Judges score. The ranks follow.
+              </p>
+              <div className="mt-6 flex flex-col items-stretch gap-3 sm:mt-8 sm:flex-row sm:items-center">
+                <Link to={startHref} className={btnYellow}>
+                  {user ? 'Your events' : 'Start an event'}
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link to={judgeHref} className={`${btnWhite} sm:px-5`}>
+                  Judge sign-in
+                </Link>
               </div>
             </div>
-          </motion.div>
 
-          {/* CTA Buttons */}
-          <motion.div variants={fadeUp} className="mt-16 flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full max-w-2xl px-4 z-10">
-            <Link
-              to={user ? "/dashboard" : "/login?mode=signup"}
-              className="w-full flex-1 font-hero text-xl lg:text-2xl uppercase tracking-widest bg-neo-black text-neo-white border-4 border-neo-black py-4 shadow-[8px_8px_0_#FFD600] hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all flex items-center justify-center gap-3 relative group overflow-hidden"
-            >
-              <span className="relative z-10">START ORGANIZING</span>
-              <div className="absolute inset-0 bg-neo-yellow translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300 ease-out z-0 border-r-4 border-neo-black"></div>
-              <span className="relative z-10 group-hover:text-neo-black transition-colors duration-300">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </span>
-            </Link>
-            <Link
-              to={user ? "/assignments" : "/login"}
-              className="w-full sm:w-auto font-hero text-xl lg:text-2xl uppercase tracking-widest bg-white text-neo-black border-4 border-neo-black py-4 px-8 shadow-[8px_8px_0_#111] hover:bg-neo-lightgray hover:translate-x-2 hover:translate-y-2 hover:shadow-none transition-all flex items-center justify-center"
-            >
-              JUDGE PORTAL
-            </Link>
-          </motion.div>
-
-          {/* Find Live Leaderboard Search Block */}
-          <motion.div
-            variants={fadeUp}
-            className="mt-12 w-full max-w-xl px-4 z-10"
-          >
-            <form onSubmit={handleFindLeaderboard} className="flex flex-col sm:flex-row border-4 border-neo-black bg-white shadow-[6px_6px_0_#FFD600] hover:-translate-y-1 hover:shadow-[8px_8px_0_#FFD600] transition-all relative group rounded-none">
-              <input
-                type="text"
-                value={eventCode}
-                onChange={(e) => setEventCode(e.target.value)}
-                placeholder="ENTER EVENT CODE (e.g. code-punk)"
-                className="flex-1 px-4 sm:px-5 py-4 font-black text-neo-black placeholder-zinc-500 uppercase tracking-wide sm:tracking-wider outline-none text-xs sm:text-base border-b-4 sm:border-b-0 sm:border-r-4 border-neo-black bg-white rounded-none"
+            <div className="scroll-mt-20 xl:col-start-2 xl:row-span-2 xl:row-start-1" id="board">
+              <SampleBoard
+                track={displayTrack}
+                rows={rows}
+                frozen={frozen}
+                celebrating={celebrating && motionOk}
+                trackId={trackId}
+                onTrack={setTrackId}
+                onMeasure={setBoardSize}
+                boardSize={boardSize}
+                climbing={climbing}
+                animate={motionOk && !frozen}
               />
-              <button
-                type="submit"
-                className="w-full sm:w-auto bg-neo-yellow px-6 py-4 font-hero text-lg uppercase tracking-wide sm:tracking-widest text-neo-black hover:bg-neo-black hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-none border-0"
-              >
-                FIND ⚡
-              </button>
-            </form>
-          </motion.div>
-        </motion.div>
-
-        {/* Product Mockup Component */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-          variants={fadeUp}
-          className="mt-32 w-full max-w-5xl relative z-10 group"
-        >
-          {/* Offset Background for Mockup */}
-          <div className="absolute inset-0 bg-neo-yellow translate-x-4 translate-y-4 sm:translate-x-8 sm:translate-y-8 border-4 border-neo-black -z-10 group-hover:translate-x-2 group-hover:translate-y-2 transition-transform duration-500"></div>
-
-          <div className="border-4 border-neo-black bg-white flex flex-col group-hover:-translate-y-2 transition-transform duration-500">
-            <div className="border-b-4 border-neo-black bg-neo-lightgray px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 sm:border-4 border-neo-black bg-neo-red hover:bg-neo-black transition-colors"></div>
-                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 sm:border-4 border-neo-black bg-neo-yellow hover:bg-neo-black transition-colors"></div>
-                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 sm:border-4 border-neo-black bg-green-400 hover:bg-neo-black transition-colors"></div>
-              </div>
-              <div className="font-mono text-[10px] sm:text-xs font-black text-neo-black uppercase tracking-widest bg-white border-2 border-neo-black px-4 py-1 shadow-[2px_2px_0_#111]">leaderboard.app/demo</div>
-              <div className="w-16 sm:w-20 hidden sm:block"></div>
             </div>
 
-            <div className="p-4 sm:p-10 bg-white flex flex-col gap-6 relative min-h-[300px] sm:min-h-[400px] overflow-hidden">
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px] pointer-events-none"></div>
-
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-4 border-neo-black pb-4 relative z-10 gap-4">
-                <div className="font-hero text-3xl sm:text-5xl text-neo-black uppercase tracking-wider drop-shadow-[2px_2px_0_#FFD600] flex items-center gap-4">
-                  LIVE RANKS
-                  <div className="hidden sm:flex w-8 h-8 border-4 border-neo-black bg-neo-yellow rounded-full items-center justify-center animate-bounce">
-                    <div className="w-2 h-2 bg-neo-black rounded-full"></div>
-                  </div>
-                </div>
-                <div className="bg-neo-black text-neo-white border-4 border-neo-black px-4 py-2 font-black text-xs sm:text-sm uppercase tracking-widest shadow-[4px_4px_0_#FFD600] flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full border border-neo-black bg-neo-red animate-pulse"></div>
-                  ROUND 2 ACTIVE
-                </div>
+            <form onSubmit={openBoard} className="xl:col-start-1 xl:row-start-2">
+              <label htmlFor={codeId} className="block font-hero text-[1.65rem] leading-none tracking-[-0.03em]">
+                Open a public board
+              </label>
+              <p className={`mt-2 max-w-md ${caption}`}>
+                Type the event code from the link. Spaces and punctuation become hyphens.
+              </p>
+              <div className="mt-3 flex max-w-md border-2 border-neo-black bg-white shadow-[3px_3px_0_#FFD600]">
+                <input
+                  id={codeId}
+                  value={eventCode}
+                  onChange={(event) => setEventCode(event.target.value)}
+                  placeholder="your-event-code"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className={`min-w-0 flex-1 bg-transparent px-3 py-2.5 font-hero text-base outline-none placeholder:text-zinc-500 sm:text-lg ${focus}`}
+                />
+                <button type="submit" className={`inline-flex min-h-11 items-center border-l-2 border-neo-black bg-neo-yellow px-4 font-hero text-lg leading-none transition-colors hover:bg-[#ffe34a] active:bg-[#f5cc00] ${focus}`}>
+                  Open
+                </button>
               </div>
-              <div className="flex flex-col gap-3 sm:gap-4 flex-1 relative z-10">
-                {[1, 2, 3].map((row) => (
-                  <div key={row} className="flex items-center justify-between p-3 sm:p-6 border-4 border-neo-black bg-neo-white hover:bg-neo-yellow hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all cursor-default">
-                    <div className="flex items-center gap-3 sm:gap-6">
-                      <div className="font-hero text-xl sm:text-4xl text-neo-black/30 w-6 sm:w-8">0{row}</div>
-                      <div className="w-8 h-8 sm:w-12 sm:h-12 border-4 border-neo-black bg-white shadow-brutal-sm overflow-hidden flex items-center justify-center">
-                        <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${row * 123}&backgroundColor=ffffff`} alt="avatar" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="font-hero text-lg sm:text-3xl uppercase tracking-widest text-neo-black truncate max-w-[120px] sm:max-w-none">TEAM EPSILON {row}</div>
+            </form>
+          </div>
+        </section>
+
+        <div className="border-y-2 border-neo-black bg-neo-black text-neo-white">
+          <p className={`${shell} py-5 font-hero text-[1.35rem] leading-tight tracking-[-0.03em] sm:py-6 sm:text-[1.7rem]`}>
+            Spectators do not sign in. The code is the address.
+          </p>
+        </div>
+
+        <section aria-labelledby="rules-heading" className={`${shell} py-20 sm:py-28`}>
+          <h2 id="rules-heading" className={sectionTitle}>
+            What the public page shows
+          </h2>
+          <dl className="mt-10 border-b border-neo-black/80">
+            {RULES.map((rule) => (
+              <div key={rule.term} className="grid gap-2 border-t border-neo-black/80 py-5 md:grid-cols-[11rem_minmax(0,40rem)] md:items-baseline md:gap-10 md:py-6">
+                <dt className="font-hero text-[1.45rem] leading-none tracking-[-0.03em]">{rule.term}</dt>
+                <dd className={prose}>{rule.detail}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <section id="desks" aria-labelledby="desks-heading" className="scroll-mt-16 border-t-2 border-neo-black">
+          <div className={`${shell} py-20 sm:py-28`}>
+            <h2 id="desks-heading" className={sectionTitle}>
+              Two people, one event
+            </h2>
+            <div className="mt-12 grid gap-14 lg:grid-cols-2 lg:gap-16">
+              <div>
+                <h3 className="font-hero text-[1.75rem] tracking-[-0.03em]">Organizer</h3>
+                <div className={`mt-4 space-y-4 ${prose}`}>
+                  <p>
+                    After sign-in, the dashboard lists that account’s events. Each one opens an admin panel, the public board, and the judge page.
+                  </p>
+                  <p>
+                    The panel is a set of tabs: tracks and rounds, rubrics, judges, teams, bonuses, and a score viewer. Rubrics are criteria with maximums. A round can be locked. Teams can be typed in or imported from a CSV, and removing a track downloads its teams before they go. Bonuses are named columns added into the total. The score viewer reads the same rounds, bonuses, and totals, and exports a CSV.
+                  </p>
+                </div>
+                <figure className="mt-8 border-2 border-neo-black bg-white p-4 sm:p-5">
+                  <figcaption className={caption}>
+                    The admin tab strip. The two controls below it act on the sample board — the same actions as Freeze leaderboard and Reveal &amp; celebrate.
+                  </figcaption>
+                  <div aria-hidden="true" className="mt-4 flex flex-wrap gap-1.5">
+                    {ADMIN_TABS.map((tab) => {
+                      const active = tab === 'Tracks & rounds'
+                      return (
+                        <span
+                          key={tab}
+                          className={`border-2 border-neo-black px-2 py-1 font-hero text-[0.8rem] uppercase tracking-wide ${active ? 'bg-neo-black text-neo-yellow' : 'bg-neo-white'}`}
+                        >
+                          {tab}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={toggleFreeze}
+                      aria-pressed={frozen}
+                      className={`${frozen ? btnInk : btnWhite} flex-1 px-3 text-left text-base sm:text-lg`}
+                    >
+                      {frozen ? 'Suspense mode: on' : 'Freeze leaderboard'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={celebrate}
+                      className={`${btnYellow} flex-1 px-3 text-left text-base sm:text-lg`}
+                    >
+                      Reveal &amp; celebrate
+                    </button>
+                  </div>
+                  <p aria-live="polite" className={`mt-3 ${caption}`}>
+                    {frozen
+                      ? 'The sample is frozen. On a real event the public rows hold still, and judges can still submit.'
+                      : 'The sample is live. A saved score shows up on the open boards.'}
+                    {celebrating ? ' Reveal clears the freeze. Open boards play confetti for 15 seconds.' : ''}
+                  </p>
+                </figure>
+              </div>
+
+              <div>
+                <h3 className="font-hero text-[1.75rem] tracking-[-0.03em]">Judge</h3>
+                <div className={`mt-4 space-y-4 ${prose}`}>
+                  <p>
+                    Judges sign in with their own account. If the organizer has not added them yet, the judge page shows the account id to send over. Once they are on the event, they get a scoring screen rather than the admin panel.
+                  </p>
+                  <p>
+                    They can filter by track, by round, and by pending or completed. Each criterion is a number up to the maximum on the rubric, and the round total is the sum of those numbers. Saving writes that judge’s scores for the team. A locked round will not take a new value. A save can play a short tone, and the judge can turn sound off.
+                  </p>
+                </div>
+                <figure className="mt-8">
+                  <div aria-hidden="true" className="border-2 border-neo-black bg-white">
+                    <div className="flex items-end justify-between gap-3 border-b-2 border-neo-black px-4 py-3">
+                      <span className="font-hero text-[1.65rem] leading-none tracking-[-0.03em]">Paper Kite</span>
+                      <span className="border-2 border-neo-black bg-neo-yellow px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em]">Evaluated</span>
                     </div>
-                    <div className="font-mono font-black text-base sm:text-2xl tracking-tighter bg-neo-black text-white px-2 sm:px-3 py-1 shadow-[2px_2px_0_#FFF] sm:shadow-[4px_4px_0_#FFF] border-2 border-neo-black">{2500 - (row * 350)}</div>
+                    <JudgeRound title="Pitch" total="24" locked={false} rows={[['Technical complexity', '8', '10'], ['UI/UX', '7', '10'], ['Innovation', '9', '10']]} />
+                    <JudgeRound title="Build" total="17" locked rows={[['Technical complexity', '6', '10'], ['UI/UX', '6', '10'], ['Innovation', '5', '10']]} />
+                    <div className="border-t-2 border-neo-black px-4 py-3">
+                      <div className="border-2 border-neo-black bg-neo-yellow py-2 text-center font-hero text-lg uppercase tracking-[0.12em]">Save team scores</div>
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Fake cursor element */}
-              <div className="absolute bottom-8 right-1/4 z-20 animate-[bounce_3s_infinite] hidden sm:block pointer-events-none drop-shadow-[2px_2px_0_#111]">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="#FFD600" stroke="#111" strokeWidth="2">
-                  <path d="M4 4l5.5 16.5L13 14l5 5 2.5-2.5-5-5 6.5-3.5L4 4z" />
-                </svg>
+                  <figcaption className={`mt-3 ${caption}`}>
+                    One team on a judge’s card. Pitch is open and totals 24. Build is locked. Technical complexity, UI/UX, and innovation are a sample rubric, not a fixed set.
+                  </figcaption>
+                </figure>
               </div>
             </div>
           </div>
-        </motion.div>
+        </section>
+
+        <section id="order" aria-labelledby="order-heading" className="scroll-mt-16 bg-neo-black text-neo-white">
+          <div className={`${shell} py-20 sm:py-28`}>
+            <h2 id="order-heading" className={sectionTitle}>
+              From an empty event to the last name
+            </h2>
+            <ol className="mt-10 border-t border-white/20">
+              {ORDER.map((step) => (
+                <li key={step.n} className="grid gap-2 border-b border-white/20 py-6 md:grid-cols-[4.5rem_minmax(0,40rem)] md:gap-8 md:py-7">
+                  <span className="font-hero text-[1.65rem] leading-none tracking-[-0.04em] text-neo-yellow">{step.n}</span>
+                  <div>
+                    <h3 className="font-hero text-[1.65rem] tracking-[-0.03em] sm:text-[1.85rem]">{step.title}</h3>
+                    <p className="mt-2 max-w-3xl text-[1.0625rem] leading-[1.65] text-white/80">{step.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section aria-labelledby="close-heading" className={`${shell} scroll-mt-16 py-20 sm:py-28`}>
+          <h2 id="close-heading" className="max-w-[12ch] font-hero text-[clamp(2.5rem,5vw,4rem)] font-medium leading-[0.94] tracking-[-0.04em]">
+            The room only needs the code.
+          </h2>
+          <p className={`mt-6 max-w-xl ${prose}`}>
+            You need an account to create the event. A judge needs an account and a place on that event’s list. Everyone else needs the link.
+          </p>
+          <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <Link to={startHref} className={btnYellow}>
+              {user ? 'Your events' : 'Start an event'}
+              <span aria-hidden="true">→</span>
+            </Link>
+            <Link to="/docs" className={btnWhite}>
+              Read the docs
+            </Link>
+          </div>
+        </section>
       </main>
 
-      {/* Trusted By Section - High Density Brand Marquee */}
-      <section className="w-full bg-neo-yellow border-y-4 border-neo-black py-12 overflow-hidden relative">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(17,17,17,0.03)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
-        <div className="text-center font-black uppercase tracking-[0.2em] text-neo-black mb-8 text-xs sm:text-sm relative z-10">EMPOWERING ELITE COMPETITIONS & HACKATHONS</div>
-        <div className="w-full relative z-10 overflow-hidden">
-          <div className="flex w-max whitespace-nowrap animate-marquee items-center gap-6">
-            {[...trustedBy, ...trustedBy].map((brand, i) => (
-              <span key={i} className={`shrink-0 font-hero text-base sm:text-2xl uppercase tracking-wide sm:tracking-widest px-3 sm:px-6 py-3 border-4 border-neo-black shadow-[4px_4px_0_#111] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all cursor-pointer ${brand.color}`}>
-                ⚡ {brand.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Bento Box Features - Premium Dense Widgets */}
-      <section id="features" className="w-full max-w-7xl mx-auto py-24 px-4">
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-center mb-20">
-          <h2 className="font-hero text-5xl sm:text-7xl uppercase text-neo-black drop-shadow-[4px_4px_0_#FFD600]">CRITICAL CAPABILITIES</h2>
-          <p className="mt-4 font-bold uppercase tracking-widest text-gray-500">ENGINEERED FOR PRODUCTION-SCALE COMPETITIONS.</p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 auto-rows-[minmax(300px,auto)]">
-          {/* Box 1 - Real-Time Sync Interactive Widget */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="md:col-span-2 border-4 border-neo-black bg-neo-yellow p-8 sm:p-12 shadow-brutal relative overflow-hidden group hover:bg-white transition-colors duration-300">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.02)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.02)_2px,transparent_2px)] bg-[size:24px_24px] pointer-events-none"></div>
-            <div className="flex flex-col h-full justify-between relative z-10">
-              <div>
-                <h3 className="font-hero text-4xl sm:text-5xl text-neo-black uppercase tracking-widest mb-4">REAL-TIME DATA FABRIC</h3>
-                <p className="font-bold text-base sm:text-lg text-neo-black uppercase tracking-wider max-w-md">Every single evaluation, score update, and lock state reflects in real-time across all browser windows simultaneously.</p>
-              </div>
-              <div className="mt-8 flex flex-wrap gap-4 items-end justify-between">
-                <div className="border-4 border-neo-black bg-white p-4 font-mono font-black shadow-brutal inline-block rotate-2 group-hover:rotate-0 transition-all duration-300">
-                  <div className="text-xs text-gray-400">SYNC LATENCY</div>
-                  <div className="text-2xl text-green-500 animate-pulse">~38ms ACTIVE</div>
-                </div>
-                <div className="flex gap-2 max-w-[200px] w-full border-4 border-neo-black bg-white p-3 shadow-brutal-sm">
-                  <div className="h-8 bg-neo-black w-1/4 animate-[pulse_1s_infinite]"></div>
-                  <div className="h-8 bg-neo-yellow w-2/4 animate-[pulse_1.5s_infinite]"></div>
-                  <div className="h-8 bg-neo-red w-1/4 animate-[pulse_1.2s_infinite]"></div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Box 2 - Multiple Tracks Status Widget */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={fadeUp} className="border-4 border-neo-black bg-white p-8 shadow-brutal flex flex-col justify-between hover:-translate-y-2 transition-transform duration-300">
-            <div>
-              <div className="w-12 h-12 bg-neo-black text-neo-yellow border-4 border-neo-black flex items-center justify-center font-hero text-2xl shadow-brutal mb-6 font-black">M</div>
-              <h3 className="font-hero text-3xl text-neo-black uppercase tracking-widest mb-2">DYNAMIC TRACKS</h3>
-              <p className="font-bold text-sm text-gray-500 uppercase tracking-widest mb-6">SUPPORT ANY EVENT TAXONOMY</p>
-
-              <div className="flex flex-col gap-2">
-                {['SOFTWARE DEV', 'ART & DESIGN', 'WEB3 HACKS'].map((track, i) => (
-                  <div key={i} className="flex items-center justify-between border-2 border-neo-black px-3 py-1.5 font-black text-xs uppercase bg-neo-lightgray">
-                    <span>{track}</span>
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-neo-black"></span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2 mt-8">
-              <span className="flex-1 h-4 bg-neo-red border-2 border-neo-black"></span>
-              <span className="flex-1 h-4 bg-neo-black border-2 border-neo-black"></span>
-              <span className="flex-1 h-4 bg-neo-yellow border-2 border-neo-black"></span>
-            </div>
-          </motion.div>
-
-          {/* Box 3 - Interactive Rubrics Preview */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={fadeUp} className="border-4 border-neo-black bg-neo-black text-white p-8 shadow-brutal flex flex-col justify-between hover:shadow-[12px_12px_0_#FFD600] transition-all duration-300">
-            <div>
-              <h3 className="font-hero text-3xl text-white uppercase tracking-widest mb-2">FLEXIBLE RUBRICS</h3>
-              <p className="font-bold text-xs text-neo-yellow uppercase tracking-widest mb-6">LOCK PARAMETERS PER ROUND</p>
-
-              <div className="flex border-2 border-white mb-4 overflow-hidden text-xs font-black">
-                {['design', 'code'].map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`flex-1 py-1.5 uppercase transition-colors ${activeTab === tab ? 'bg-white text-neo-black' : 'text-white'}`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              {activeTab === 'design' ? (
-                <div className="space-y-3 font-mono text-xs">
-                  <div>
-                    <div className="flex justify-between mb-1 text-gray-400"><span>UX FEEL</span><span>10pts</span></div>
-                    <div className="h-2 bg-gray-800 border border-white"><div className="h-full bg-neo-yellow w-4/5"></div></div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1 text-gray-400"><span>UI AESTHETIC</span><span>10pts</span></div>
-                    <div className="h-2 bg-gray-800 border border-white"><div className="h-full bg-neo-yellow w-3/5"></div></div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 font-mono text-xs">
-                  <div>
-                    <div className="flex justify-between mb-1 text-gray-400"><span>STABILITY</span><span>10pts</span></div>
-                    <div className="h-2 bg-gray-800 border border-white"><div className="h-full bg-green-400 w-[95%]"></div></div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between mb-1 text-gray-400"><span>COMPLEXITY</span><span>10pts</span></div>
-                    <div className="h-2 bg-gray-800 border border-white"><div className="h-full bg-green-400 w-1/2"></div></div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="font-mono text-[10px] text-gray-400 border-t border-gray-800 pt-4 mt-6">
-              * DYNAMIC RUBRICS SYSTEM V2
-            </div>
-          </motion.div>
-
-          {/* Box 4 - Suspense Mode Freeze Widget */}
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={fadeUp} className="md:col-span-2 border-4 border-neo-black bg-white p-8 sm:p-12 shadow-[8px_8px_0_#111] overflow-hidden relative flex flex-col justify-between group hover:bg-neo-lightgray transition-colors duration-300">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px] pointer-events-none"></div>
-            <div>
-              <div className="border-4 border-neo-black bg-neo-red text-white font-black text-xs px-3 py-1 uppercase tracking-widest inline-block mb-4 shadow-brutal-sm">
-                EXCLUSIVE FEATURE
-              </div>
-              <h3 className="font-hero text-4xl sm:text-5xl text-neo-black uppercase tracking-widest mb-4">SUSPENSE PROTOCOL</h3>
-              <p className="font-bold text-base sm:text-lg text-neo-black uppercase tracking-wider max-w-xl">Freeze public leaderboards while allowing judges to submit final scores secretly. Reveal live results dramatically on stage to maximize energy.</p>
-            </div>
-            <div className="mt-8 flex items-center gap-4">
-              <button className="bg-neo-yellow border-4 border-neo-black px-6 py-3 font-black uppercase tracking-widest shadow-brutal group-hover:-rotate-2 transition-transform cursor-default">❄️ FROZEN LEADERBOARD</button>
-              <div className="w-12 h-12 rounded-full border-4 border-neo-black bg-white flex items-center justify-center font-black text-xl shadow-brutal-sm">!</div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* How It Works - Connected Workflow Steps */}
-      <section id="workflow" className="w-full bg-neo-black text-neo-white py-24 border-y-4 border-neo-black relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_2px,transparent_2px),linear-gradient(90deg,rgba(255,255,255,0.03)_2px,transparent_2px)] bg-[size:48px_48px] pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-center mb-20">
-            <h2 className="font-hero text-5xl sm:text-7xl uppercase text-neo-white drop-shadow-[4px_4px_0_#FFD600]">OPERATING MODEL</h2>
-            <p className="mt-4 font-bold uppercase tracking-widest text-gray-400">ENGINEERED CONSOLES FOR COMPREHENSIVE TOURNAMENT MANAGEMENT</p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative">
-            {[
-              {
-                step: "01",
-                phase: "MY EVENTS HUB",
-                title: "YOUR HOME BASE",
-                desc: "Your friendly central dashboard. See all your active and past contests at a glance, create new events in seconds, and quickly jump to your event control room or judge pages with simple links.",
-                features: ["All Your Events Listed", "Friendly Event Links", "Simple New Event Setup", "Easy Password Updates"]
-              },
-              {
-                step: "02",
-                phase: "EVENT CONTROL ROOM",
-                title: "EASY CUSTOMIZATION",
-                desc: "Design your event exactly how you want it with zero coding! Create custom categories (like Art, Coding, or Pitch), set up scoring rounds, add your judges, and choose easy grading rules.",
-                features: ["Custom Categories", "Grading Rules (Rubrics)", "Rounds & Bonus Points", "Add Unlimited Judges"]
-              },
-              {
-                step: "03",
-                phase: "JUDGING SCREEN",
-                title: "TAP TO GRADE ON PHONES",
-                desc: "A super clean screen designed for your judges. They can log in on any phone or tablet, see your simple grading questions, tap to score, and watch the scores calculate instantly.",
-                features: ["Works on Any Phone", "Simple Tap Grading", "Instant Scoring Averages", "Safe & Secure Logins"]
-              },
-              {
-                step: "04",
-                phase: "LIVE LEADERBOARD",
-                title: "SPECTATOR SHOWCASE",
-                desc: "A beautiful, real-time board for your audience. Filter by categories, freeze the board near the end to keep the final winners a surprise, and tap a button to trigger screen-wide confetti!",
-                features: ["Real-Time Score Updates", "Secret Climax (Freeze)", "Confetti Celebrations", "Animated Podium Views"]
-              },
-              {
-                step: "05",
-                phase: "FAST CODES",
-                title: "INSTANT SPECTATOR ENTRY",
-                desc: "No complicated links needed. Audience members and contestants can simply type your custom event code right on the homepage to open your live scoreboard or join as a grader.",
-                features: ["Type Code to Enter", "Instant Score Lookup", "QR-Code Friendly Routes", "Custom Friendly Names"]
-              }
-            ].map((card, idx) => (
-              <motion.div
-                key={card.step}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true }}
-                variants={fadeUp}
-                className="border-4 border-neo-black bg-white p-8 shadow-[8px_8px_0_#FFD600] text-neo-black flex flex-col justify-between group hover:-translate-y-2 hover:shadow-[12px_12px_0_#FFD600] transition-all duration-300 z-10 min-h-[380px]"
-              >
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <span className="font-hero text-5xl text-neo-yellow drop-shadow-[3px_3px_0_#111]">{card.step}</span>
-                    <span className="font-mono text-xs font-black text-gray-400 uppercase tracking-widest">{card.phase}</span>
-                  </div>
-                  <h3 className="font-hero text-2xl uppercase tracking-widest mb-4">{card.title}</h3>
-                  <p className="font-bold text-gray-600 uppercase tracking-wider text-xs leading-relaxed mb-6">{card.desc}</p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {card.features.map((f, i) => (
-                      <span key={i} className="bg-neo-lightgray border-2 border-neo-black px-2 py-1 font-black text-[10px] uppercase tracking-wider text-neo-black">
-                        ⚡ {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-8 border-t-2 border-neo-black pt-4 font-black text-xs uppercase tracking-widest text-neo-black flex items-center gap-2">
-                  <span>EXPLORE CONSOLE</span> &rarr;
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials - Styled as Professional Tweet/Social Embed Grid */}
-      <section id="testimonials" className="w-full max-w-7xl mx-auto py-24 px-4">
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-center mb-20">
-          <h2 className="font-hero text-5xl sm:text-7xl uppercase text-neo-black drop-shadow-[4px_4px_0_#111]">WALL OF LOVE</h2>
-          <p className="mt-4 font-bold uppercase tracking-widest text-gray-500">REAL REVIEWS FROM ORGANIZERS DRIVING SUCCESS.</p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {testimonials.map((t, idx) => (
-            <motion.div
-              key={idx}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              variants={fadeUp}
-              className="border-4 border-neo-black bg-white p-8 shadow-brutal flex flex-col justify-between hover:bg-neo-yellow hover:-translate-y-2 transition-all duration-300"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-6">
-                  <div className="flex items-center gap-3">
-                    <img src={t.avatar} alt={t.name} className="w-12 h-12 rounded-full border-2 border-neo-black bg-neo-lightgray" />
-                    <div>
-                      <div className="font-hero text-lg uppercase tracking-wider leading-none">{t.name}</div>
-                      <div className="font-mono text-xs text-gray-400 mt-1">{t.handle}</div>
-                    </div>
-                  </div>
-                  <div className="flex text-neo-black font-black text-sm">
-                    {"★".repeat(t.stars)}
-                  </div>
-                </div>
-                <p className="font-bold text-base text-neo-black uppercase tracking-wider italic leading-relaxed mb-8">"{t.text}"</p>
-              </div>
-              <div className="border-t-2 border-neo-black pt-4">
-                <div className="font-black text-xs text-gray-500 uppercase tracking-[0.2em]">{t.role}</div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* Final CTA - Premium Grid-Split Layout */}
-      <section className="w-full bg-neo-yellow border-t-4 border-neo-black py-32 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.04)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.04)_2px,transparent_2px)] bg-[size:24px_24px] pointer-events-none"></div>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-left flex flex-col items-start">
-            <h2 className="font-hero text-4xl sm:text-8xl uppercase text-neo-black drop-shadow-[4px_4px_0_#FFF] leading-none mb-6">
-              UPGRADE <br /> YOUR EVENT.
-            </h2>
-            <p className="font-bold text-base sm:text-xl uppercase tracking-wide sm:tracking-widest text-neo-black mb-8 max-w-md leading-relaxed">
-              Stop using legacy spreadsheets. Standardize on the robust scoring network engineered for hackathons, design challenges, and competitive sprints.
-            </p>
-            <Link
-              to="/login?mode=signup"
-              className="font-hero text-xl sm:text-4xl uppercase tracking-wide sm:tracking-widest bg-neo-black text-neo-white border-4 border-neo-black px-6 sm:px-10 py-4 sm:py-5 shadow-[8px_8px_0_#FFF] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all"
-            >
-              GET DEPLOYED &rarr;
+      <footer className="border-t-2 border-neo-black">
+        <div className={`${shell} flex flex-col gap-6 py-8`}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <Link to="/" className={`w-fit rounded-sm ${focus}`} aria-label="LeadX, home">
+              <img src="/Lead-X.png" alt="" className="h-9 w-auto" />
             </Link>
-          </motion.div>
-
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="border-4 border-neo-black bg-white p-8 shadow-brutal relative rotate-2 hover:rotate-0 transition-transform duration-300">
-            <div className="absolute -top-6 -right-6 bg-neo-red text-white border-4 border-neo-black px-4 py-1.5 font-black text-xs uppercase tracking-widest shadow-brutal-sm animate-bounce">
-              FREE TIER ACTIVE
-            </div>
-            <h3 className="font-hero text-3xl mb-4 uppercase">STARTING PACK</h3>
-            <ul className="space-y-3 font-bold uppercase text-sm mb-8">
-              <li className="flex items-center gap-2">✓ Unlimited Public Teams</li>
-              <li className="flex items-center gap-2">✓ Dynamic Rubrics Editor</li>
-              <li className="flex items-center gap-2">✓ Multi-Track Judge Assignment</li>
-              <li className="flex items-center gap-2">✓ Real-time Sync & Suspense Mode</li>
-            </ul>
-            <div className="font-mono text-xs text-gray-400">
-              * Setup completes in under 3 minutes. No Credit Card required.
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Footer - Full Professional Multi-Column */}
-      <footer className="w-full border-t-4 border-neo-black bg-white py-16 px-4 sm:px-8 relative z-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-          <div className="flex flex-col items-start gap-4 md:col-span-3">
-            <img
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              src="/Lead-X.png"
-              alt="LeadX Logo"
-              className="h-16 lg:h-20 drop-shadow-[2px_2px_0_#111] cursor-pointer hover:scale-105 transition-transform"
-            />
-            <p className="font-bold uppercase text-xs text-gray-500 tracking-wider max-w-xs leading-relaxed">
-              Standardizing hackathons and competitive sprints with real-time scoring data fabric.
+            <nav aria-label="Footer" className="flex flex-wrap gap-x-4 gap-y-2">
+              <a className={navLink} href="#board">Board</a>
+              <a className={navLink} href="#desks">Desks</a>
+              <a className={navLink} href="#order">Order</a>
+              <Link className={navLink} to="/docs">Docs</Link>
+              <Link className={navLink} to="/login">Log in</Link>
+            </nav>
+          </div>
+          <div className="flex flex-col gap-2 border-t border-neo-black/15 pt-4 text-sm text-zinc-600 sm:flex-row sm:items-center sm:justify-between">
+            <p>© 2026 LeadX</p>
+            <p>
+              Built by{' '}
+              <a className={`font-semibold text-neo-black underline-offset-4 hover:underline ${focus}`} href="https://github.com/adityanaulakha">
+                Aditya Naulakha
+              </a>
             </p>
-          </div>
-          <div className="md:justify-self-end">
-            <h4 className="font-hero text-lg uppercase tracking-wider mb-4 text-neo-black">PRODUCT</h4>
-            <ul className="space-y-2 font-black uppercase text-xs text-gray-500 tracking-widest">
-              <li><a href="#features" className="hover:text-neo-black">Features</a></li>
-              <li><a href="#workflow" className="hover:text-neo-black">How It Works</a></li>
-              <li><Link to="/login" className="hover:text-neo-black">Sign Up</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto border-t-4 border-neo-black pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="font-black uppercase text-xs text-gray-500 tracking-widest">
-            &copy; 2026 LEADX INC. ALL RIGHTS RESERVED.
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
 
+function SampleBoard({ track, rows, frozen, celebrating, trackId, onTrack, onMeasure, boardSize, climbing, animate }) {
+  return (
+    <figure>
+      <div className="relative pb-2 pr-2 sm:pb-3 sm:pr-3">
+        <div aria-hidden="true" className="absolute bottom-0 right-0 left-2 top-2 border-2 border-neo-black bg-neo-yellow xl:left-3 xl:top-3 xl:rotate-[1.6deg]" />
+        <div className="relative border-2 border-neo-black bg-neo-white">
+      <div
+        ref={(node) => {
+          if (!node) return
+          const next = { width: node.clientWidth, height: node.clientHeight }
+          if (next.width !== boardSize.width || next.height !== boardSize.height) onMeasure(next)
+        }}
+        className="relative overflow-hidden"
+      >
+        {celebrating && boardSize.width > 0 && (
+          <Confetti
+            width={boardSize.width}
+            height={boardSize.height}
+            recycle={false}
+            numberOfPieces={90}
+            gravity={0.28}
+            colors={['#FFD600', '#111111', '#FF3B30', '#F4F4F0']}
+            style={{ position: 'absolute', inset: 0, zIndex: 30 }}
+          />
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(17,17,17,0.045)_1px,transparent_1px)] bg-[size:20px_20px]" />
+        <div className="relative p-3 sm:p-4">
+          <div className="flex flex-col gap-3 border-b-2 border-neo-black pb-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              {frozen ? (
+                <span className="inline-flex border-2 border-neo-black bg-cyan-300 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.14em]">
+                  Leaderboard frozen
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 border-2 border-neo-black bg-neo-yellow px-2.5 py-1">
+                  <span className="h-2 w-2 animate-pulse rounded-full border-2 border-neo-black bg-neo-red motion-reduce:animate-none" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.14em]">Live data</span>
+                </span>
+              )}
+              <p className="mt-2 font-hero text-[1.7rem] uppercase leading-[0.84] tracking-[-0.03em] sm:text-[2.6rem]">
+                <span className="block">Global</span>
+                <span className="mt-1 inline-block -rotate-1 border-2 border-neo-black bg-neo-yellow px-2 py-0.5 shadow-[3px_3px_0_#111]">
+                  Ranks
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
+              <div className="flex border-2 border-neo-black bg-white p-0.5" role="group" aria-label="Sample track">
+                {TRACK_ORDER.map((id) => {
+                  const item = TRACKS[id]
+                  const active = id === trackId
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => onTrack(id)}
+                      aria-pressed={active}
+                      className={`min-h-10 px-3 py-1.5 font-hero text-base uppercase leading-none transition-colors ${focus} ${active ? 'bg-neo-black text-neo-yellow' : 'text-neo-black hover:bg-neo-yellow active:bg-neo-black active:text-neo-yellow'}`}
+                    >
+                      {item.name}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="border-2 border-neo-black bg-white px-2.5 py-1 text-center text-[11px] font-black uppercase tracking-[0.14em] sm:text-left">
+                Total teams <span className="ml-1.5 font-hero text-lg normal-case tracking-normal">{rows.length}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 hidden md:block">
+            <div className="grid grid-cols-[3.6rem_minmax(0,1fr)_3.1rem_3.1rem_3.4rem_4rem] gap-2 bg-neo-black px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-[3px_3px_0_#FFD600]">
+              <span>Rank</span>
+              <span>Team</span>
+              {track.rounds.map((round) => (
+                <span key={round} className="text-right">{round}</span>
+              ))}
+              <span className="text-right">{track.bonus}</span>
+              <span className="text-right text-neo-yellow">Total</span>
+            </div>
+            <div key={trackId} className="mt-2 flex flex-col gap-2">
+              {rows.map((team) => (
+                <DesktopRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} animate={animate} hot={climbing && team.id === 'paper'} />
+              ))}
+            </div>
+          </div>
+
+          <div key={`${trackId}-m`} className="mt-4 flex flex-col gap-2 md:hidden">
+            {rows.map((team) => (
+              <MobileRow key={team.id} team={team} track={track} marked={!frozen && team.id === 'paper' && trackId === 'software'} animate={animate} hot={climbing && team.id === 'paper'} />
+            ))}
+          </div>
+
+        </div>
+      </div>
+        </div>
+      </div>
+      <figcaption className={`mt-3 max-w-prose ${caption}`}>
+        Sample scores, not a live event. {trackId !== 'software'
+          ? 'No tie on this track, so the places run straight down.'
+          : climbing
+            ? 'Paper Kite’s Build just rose, so it takes 1st and the rows slide.'
+            : 'Paper Kite and Harbor are tied on 81, so both are 2nd and Kiln is 3rd. The ring marks the row that just changed.'}{' '}
+        Pitch, Build, and Bonus are sample column names.
+      </figcaption>
+    </figure>
+  )
+}
+
+function DesktopRow({ team, track, marked, animate, hot }) {
+  return (
+    <MotionDiv
+      layout={animate}
+      transition={animate ? { type: 'spring', stiffness: 380, damping: 34, mass: 0.8 } : { duration: 0 }}
+      className={`relative grid grid-cols-[3.6rem_minmax(0,1fr)_3.1rem_3.1rem_3.4rem_4rem] items-center gap-2 border-2 border-neo-black px-3 py-2 ${rowSurface(team.rank)} ${marked ? 'z-10 ring-2 ring-neo-yellow ring-offset-1' : ''}`}
+    >
+      <span className="font-hero text-xl tabular-nums leading-none">{ordinal(team.rank)}</span>
+      <span className="truncate font-hero text-xl leading-none">{team.name}</span>
+      {track.rounds.map((round) => (
+        <span key={round} className="text-right font-hero text-xl tabular-nums leading-none">
+          <Pop value={team.scores[round]} hot={hot && round === 'Build'} />
+        </span>
+      ))}
+      <span className="text-right font-hero text-xl tabular-nums leading-none">{team.bonus}</span>
+      <span className="text-right">
+        <span className={`inline-block font-hero text-2xl tabular-nums leading-none ${team.rank === 1 ? '-rotate-1 border-2 border-neo-black bg-white px-1 py-0.5 shadow-[2px_2px_0_#111]' : ''}`}>
+          <Pop value={team.total} hot={hot} />
+        </span>
+      </span>
+    </MotionDiv>
+  )
+}
+
+function MobileRow({ team, track, marked, animate, hot }) {
+  return (
+    <MotionDiv
+      layout={animate}
+      transition={animate ? { type: 'spring', stiffness: 380, damping: 34, mass: 0.8 } : { duration: 0 }}
+      className={`relative border-2 border-neo-black px-3 py-3 ${rowSurface(team.rank)} ${marked ? 'z-10 ring-2 ring-neo-yellow ring-offset-1' : ''}`}
+    >
+      <div className="flex items-center gap-3">
+        <span className="font-hero text-2xl tabular-nums leading-none">{ordinal(team.rank)}</span>
+        <span className="min-w-0 flex-1 truncate font-hero text-xl leading-none">{team.name}</span>
+        <span className={`font-hero text-2xl tabular-nums leading-none ${team.rank === 1 ? '-rotate-1 border-2 border-neo-black bg-white px-1' : ''}`}>
+          <Pop value={team.total} hot={hot} />
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {track.rounds.map((round) => (
+          <span key={round} className="border-2 border-neo-black bg-neo-white px-2 py-1 text-[11px] font-bold uppercase tracking-wider">
+            {round}{' '}
+            <span className="font-hero text-base normal-case tracking-normal">
+              <Pop value={team.scores[round]} hot={hot && round === 'Build'} />
+            </span>
+          </span>
+        ))}
+        <span className="border-2 border-neo-black bg-neo-white px-2 py-1 text-[11px] font-bold uppercase tracking-wider">
+          {track.bonus} <span className="font-hero text-base normal-case tracking-normal">{team.bonus}</span>
+        </span>
+      </div>
+    </MotionDiv>
+  )
+}
+
+function Pop({ value, hot }) {
+  return <span key={value} className={hot ? 'lx-pop inline-block' : 'inline-block'}>{value}</span>
+}
+
+function JudgeRound({ title, total, locked, rows }) {
+  return (
+    <div className="border-b-2 border-neo-black">
+      <div className="flex items-center justify-between gap-3 bg-white px-4 py-2.5">
+        <span className="font-hero text-lg uppercase tracking-[0.06em]">{title}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600">Total {total}</span>
+          {locked && (
+            <span className="border-2 border-neo-black bg-white px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-neo-red">Locked</span>
+          )}
+        </span>
+      </div>
+      <div className={locked ? 'opacity-45' : undefined}>
+        {rows.map(([label, value, max]) => (
+          <div key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-t border-neo-black/10 px-4 py-2">
+            <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-zinc-600">{label}</span>
+            <span className="min-w-[4.25rem] border-b-2 border-neo-black pb-0.5 text-center font-hero text-xl tabular-nums leading-none">
+              {value}
+              <span className="ml-0.5 text-[10px] font-bold tracking-normal text-zinc-500">/{max}</span>
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

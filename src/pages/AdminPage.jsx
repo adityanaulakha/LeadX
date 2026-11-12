@@ -1,5 +1,4 @@
 import Papa from 'papaparse'
-import { motion } from 'framer-motion'
 import { doc, getDoc, onSnapshot } from 'firebase/firestore'
 import { signOut } from 'firebase/auth'
 import { useEffect, useState } from 'react'
@@ -12,10 +11,9 @@ import { addTeam, bulkImportTeams, deleteTeam, deleteAllTeams, resetBonusScores,
 import { addJudge, removeJudge, submitScore, updateJudgeName } from '../lib/judges.js'
 import { sanitizeString, sanitizeAlphanumeric } from '../utils/sanitize.js'
 import SoundToggleButton from '../components/SoundToggleButton.jsx'
-import { playSuccessChime, playFanfare, playErrorSound } from '../lib/sounds.js'
+import { playSuccessChime, playFanfare, playErrorSound, playSaveSound } from '../lib/sounds.js'
+import { AppBar, Button, PageMain, PageShell, PageTitle } from '../ui/ui.jsx'
 import { resolveHandleToUid } from '../lib/users.js'
-
-const MotionDiv = motion.div
 
 export function useAuthState() {
   const [user, setUser] = useState(undefined)
@@ -534,54 +532,38 @@ export default function AdminPage() {
   })
 
   return (
-    <div className="min-h-screen bg-neo-white relative overflow-x-hidden text-neo-black">
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px] pointer-events-none"></div>
-      <MotionDiv initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mx-auto max-w-6xl px-3 sm:px-4 py-10 relative z-10">
-        
-        {/* Header */}
-        <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between mb-12 border-b-4 border-neo-black pb-8">
-          <div className="relative">
-            <div className="border-4 border-neo-black px-4 py-1.5 font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-6 inline-flex items-center gap-3 bg-white shadow-[4px_4px_0_#111]">
-              <span className="w-3 h-3 rounded-full border-4 border-neo-black bg-neo-yellow"></span>
-              ORGANIZER DASHBOARD
-            </div>
-            <h1 className="font-hero text-[2.8rem] sm:text-[4rem] lg:text-[5rem] tracking-tight text-neo-black uppercase leading-[0.9] sm:leading-[0.85]">
-              <span className="block">ADMIN</span>
-              <span className="inline-block bg-neo-yellow border-[4px] border-neo-black px-4 my-2 shadow-[6px_6px_0_#111] -rotate-2">
-                PANEL
-              </span>
-            </h1>
-          </div>
-          <div className="flex gap-4 items-center flex-wrap justify-end mt-4">
-            <Link to="/dashboard" className="font-black text-xs sm:text-sm border-4 border-neo-black bg-white px-3 sm:px-6 py-3 uppercase tracking-wide sm:tracking-widest text-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0_#111] transition-all flex items-center gap-2">&larr; Dash</Link>
-            {canUseAdmin && <Link to={`/${hackathonId}/podium`} className="font-black text-xs sm:text-sm border-4 border-neo-black bg-white px-3 sm:px-6 py-3 uppercase tracking-wide sm:tracking-widest text-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0_#111] transition-all">🏆 Podium</Link>}
-            <Link to={`/${hackathonId}`} className="font-black text-xs sm:text-sm border-4 border-neo-black bg-neo-yellow px-3 sm:px-6 py-3 uppercase tracking-wide sm:tracking-widest text-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0_#111] transition-all">Public</Link>
-            {user && (
-              <>
-                <SoundToggleButton />
-                <button onClick={() => signOut(auth)} className="font-black text-xs sm:text-sm border-4 border-neo-black bg-neo-black px-3 sm:px-6 py-3 uppercase tracking-wide sm:tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 transition-all">Sign out</button>
-              </>
-            )}
-          </div>
-        </div>
+    <PageShell>
+      <AppBar>
+        <Button to="/dashboard" variant="white" size="sm">Dashboard</Button>
+        {canUseAdmin && <Button to={`/${hackathonId}/podium`} variant="white" size="sm">Podium</Button>}
+        <Button to={`/${hackathonId}`} variant="yellow" size="sm">Public</Button>
+        {user && (
+          <>
+            <SoundToggleButton />
+            <Button variant="ink" size="sm" onClick={() => signOut(auth)}>Sign out</Button>
+          </>
+        )}
+      </AppBar>
+      <PageMain>
+        <PageTitle kicker="Organizer" title="Admin panel" />
 
         {/* Notices */}
-        {!firebaseEnabled && <div className="mt-8 border-4 border-neo-black bg-white p-6 text-sm font-bold text-neo-black shadow-brutal">Firebase not configured.</div>}
-        {firebaseEnabled && user && adminStatus === 'loading' && <div className="mt-8 font-hero text-2xl border-4 text-neo-black shadow-brutal">Checking permissions…</div>}
+        {!firebaseEnabled && <div className="mt-8 border-2 border-neo-black bg-white p-6 text-sm font-bold text-neo-black shadow-[4px_4px_0_#111]">Firebase not configured.</div>}
+        {firebaseEnabled && user && adminStatus === 'loading' && <div className="mt-8 font-hero text-2xl border-2 text-neo-black shadow-[4px_4px_0_#111]">Checking permissions…</div>}
         {firebaseEnabled && user && adminStatus === 'ready' && !isAdmin && !isJudge && (
-          <div className="mt-8 border-4 border-neo-black bg-white p-6 font-bold text-neo-black shadow-brutal flex flex-col gap-4">
-            <h2 className="font-hero text-3xl uppercase tracking-widest text-neo-red drop-shadow-[2px_2px_0_#111]">Pending Authorization</h2>
+          <div className="mt-8 border-2 border-neo-black bg-white p-6 font-bold text-neo-black shadow-[4px_4px_0_#111] flex flex-col gap-4">
+            <h2 className="font-hero text-3xl uppercase tracking-widest text-neo-red drop-shadow-[4px_4px_0_#111]">Pending Authorization</h2>
             <p className="text-neo-black">
               You are signed in, but your account has not been granted access to this event yet.
               If you are an <strong>Evaluator/Judge</strong>, please copy your unique system ID below and securely send it to the Event Organizer.
             </p>
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="p-4 bg-neo-black border-4 border-neo-black font-mono text-xl text-neo-yellow break-all select-all cursor-text shadow-[4px_4px_0_#111] flex-1 sm:flex-initial">
+              <div className="p-4 bg-neo-black border-2 border-neo-black font-mono text-xl text-neo-yellow break-all select-all cursor-text shadow-[4px_4px_0_#111] flex-1 sm:flex-initial">
                 {user.uid}
               </div>
               <button 
                 onClick={() => { navigator.clipboard.writeText(user.uid); playSuccessChime(); setToast({ type: 'success', message: 'UID copied to clipboard!' }) }} 
-                className="h-full bg-neo-yellow text-neo-black font-black text-sm border-4 border-neo-black px-6 py-4 uppercase tracking-widest hover:-translate-y-1 shadow-[4px_4px_0_#111] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all flex items-center gap-2 cursor-pointer"
+                className="h-full bg-neo-yellow text-neo-black font-black text-sm border-2 border-neo-black px-6 py-4 uppercase tracking-widest hover:-translate-y-1 shadow-[4px_4px_0_#111] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all flex items-center gap-2 cursor-pointer"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 COPY UID
@@ -594,29 +576,27 @@ export default function AdminPage() {
         )}
 
         {firebaseEnabled && user && adminStatus === 'ready' && !isAdmin && isJudge && (
-          <div className="mt-8 border-4 border-neo-black bg-white p-6 font-bold text-neo-black shadow-brutal flex flex-col gap-4">
-            <h2 className="font-hero text-3xl uppercase tracking-widest text-neo-black drop-shadow-[2px_2px_0_#FFD600]">Wrong Portal</h2>
+          <div className="mt-8 border-2 border-neo-black bg-white p-6 font-bold text-neo-black shadow-[4px_4px_0_#111] flex flex-col gap-4">
+            <h2 className="font-hero text-3xl uppercase tracking-widest text-neo-black drop-shadow-[4px_4px_0_#FFD600]">Wrong Portal</h2>
             <p className="text-neo-black">
               You are an authorized Judge. Please head over to the dedicated Judge Portal.
             </p>
-            <Link to={`/${hackathonId}/judge`} className="inline-block bg-neo-yellow border-4 border-neo-black text-neo-black px-6 py-3 font-hero text-2xl uppercase tracking-widest hover:scale-105 transition-transform text-center shadow-[4px_4px_0_#111] max-w-xs">
+            <Link to={`/${hackathonId}/judge`} className="inline-block bg-neo-yellow border-2 border-neo-black text-neo-black px-6 py-3 font-hero text-2xl uppercase tracking-widest hover:scale-105 transition-transform text-center shadow-[4px_4px_0_#111] max-w-xs">
               Go to Judge Portal
             </Link>
           </div>
         )}
         {/* Event Controls */}
         {canUseAdmin && (
-          <div className="mt-8 flex flex-col md:flex-row gap-6 border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 shadow-brutal md:items-center justify-between relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-neo-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
-            <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
+          <div className="mt-8 flex flex-col md:flex-row gap-6 border-2 border-neo-black bg-white  p-6 shadow-[4px_4px_0_#111] md:items-center justify-between relative overflow-hidden">            <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
               <div className="flex flex-col">
-                <div className="font-hero text-3xl text-neo-black uppercase tracking-widest text-neo-black drop-shadow-[2px_2px_0_#111]">Event Controls</div>
+                <div className="font-hero text-3xl text-neo-black uppercase tracking-widest text-neo-black drop-shadow-[4px_4px_0_#111]">Event Controls</div>
                 <div className="text-xs text-gray-500 uppercase tracking-widest font-bold">Production Desk</div>
               </div>
               <button 
                 onClick={handleToggleFreeze}
                 disabled={busy}
-                className={`font-hero text-xl px-8 py-3 border-4 transition-all hover:-translate-y-1 hover:-translate-x-1 uppercase tracking-widest ${isFrozen ? 'border-neo-black bg-neo-black text-white shadow-brutal scale-105' : 'border-neo-black bg-neo-lightgray text-neo-black shadow-[4px_4px_0_#333]'}`}
+                className={`font-hero text-xl px-8 py-3 border-2 transition-all hover:-translate-y-1 hover:-translate-x-1 uppercase tracking-widest ${isFrozen ? 'border-neo-black bg-neo-black text-white shadow-[4px_4px_0_#111] scale-105' : 'border-neo-black bg-neo-lightgray text-neo-black shadow-[4px_4px_0_#111]'}`}
               >
                 {isFrozen ? '❄️ Suspense Mode: ON (Frozen)' : 'Freeze Leaderboard'}
               </button>
@@ -624,7 +604,7 @@ export default function AdminPage() {
             <button 
               onClick={handleCelebrate}
               disabled={busy}
-              className="font-hero text-2xl tracking-widest uppercase px-10 py-3 border-4 border-neo-black bg-neo-yellow text-neo-black shadow-[6px_6px_0_#FF00A0] transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[8px_8px_0_#FF00A0] relative z-10"
+              className="font-hero text-2xl tracking-widest uppercase px-10 py-3 border-2 border-neo-black bg-neo-yellow text-neo-black shadow-[4px_4px_0_#111] transition-all hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[4px_4px_0_#111] relative z-10"
             >
               🎉 REVEAL & CELEBRATE
             </button>
@@ -635,14 +615,14 @@ export default function AdminPage() {
         {canUseAdmin && (
           <div className="mt-12">
              {tracks.length === 0 && (
-               <div className="border-4 border-neo-black bg-neo-yellow p-6 shadow-brutal flex flex-col gap-2 mb-8">
-                 <div className="font-hero text-3xl uppercase text-neo-black drop-shadow-[1px_1px_0_#111]">🚀 GETTING STARTED</div>
+               <div className="border-2 border-neo-black bg-neo-yellow p-6 shadow-[4px_4px_0_#111] flex flex-col gap-2 mb-8">
+                 <div className="font-hero text-3xl uppercase text-neo-black drop-shadow-[4px_4px_0_#111]">🚀 GETTING STARTED</div>
                  <p className="text-neo-black font-bold uppercase tracking-wider text-xs sm:text-sm">
                    Welcome to your new Hackathon! Please navigate to the <strong>TRACKS & ROUNDS</strong> tab below and create your first track to enable team management and evaluation features.
                  </p>
                </div>
              )}
-             <div className="flex flex-wrap gap-4 mb-8 border-b-4 border-neo-black pb-4">
+             <div className="flex flex-wrap gap-4 mb-8 border-b-2 border-neo-black pb-4">
               {[
                 { id: 'bonuses', label: 'EDIT BONUSES' },
                 { id: 'rubrics', label: 'MANAGE RUBRICS' },
@@ -654,9 +634,9 @@ export default function AdminPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`font-hero text-xl lg:text-2xl px-6 py-3 transition-all tracking-widest uppercase border-4 ${
+                  className={`font-hero text-xl lg:text-2xl px-6 py-3 transition-all tracking-widest uppercase border-2 ${
                     activeTab === tab.id
-                      ? 'bg-neo-black border-neo-black text-neo-yellow shadow-[6px_6px_0_#FFD600] scale-105 -translate-y-2'
+                      ? 'bg-neo-black border-neo-black text-neo-yellow shadow-[4px_4px_0_#FFD600] scale-105 -translate-y-2'
                       : 'bg-white border-neo-black text-neo-black hover:bg-neo-yellow hover:shadow-[4px_4px_0_#111]'
                   }`}
                 >
@@ -667,11 +647,9 @@ export default function AdminPage() {
 
             {/* EDIT BONUSES TAB */}
             {activeTab === 'bonuses' && (
-              <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-neo-black/10 rounded-full blur-3xl pointer-events-none"></div>
-
+              <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] relative overflow-hidden">
                 {/* BONUS COLUMN CONFIGURATION BUILDER */}
-                <div className="relative z-10 mb-12 border-b-4 border-neo-black pb-10">
+                <div className="relative z-10 mb-12 border-b-2 border-neo-black pb-10">
                   <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 mb-6">
                     <div>
                       <h2 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Manage Bonus Types</h2>
@@ -681,7 +659,7 @@ export default function AdminPage() {
                       <select 
                         value={bonusManageTrack} 
                         onChange={e => setBonusManageTrack(e.target.value)} 
-                        className="border-4 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]"
+                        className="border-2 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]"
                       >
                         {tracks.length === 0 ? (
                           <option value="">NO TRACKS</option>
@@ -694,7 +672,7 @@ export default function AdminPage() {
                       <button
                         onClick={handleResetBonusScores}
                         disabled={busy}
-                        className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-4 border-neo-black transition-colors shadow-brutal"
+                        className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-2 border-neo-black transition-colors shadow-[4px_4px_0_#111]"
                         title={`Reset ${bonusManageTrack} Bonus Scores`}
                       >
                         RESET SCORES
@@ -702,33 +680,33 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <form onSubmit={handleAddBonus} className="flex flex-col sm:flex-row gap-4 max-w-4xl mx-auto bg-neo-white p-6 border-4 border-neo-black shadow-brutal relative mb-8">
+                  <form onSubmit={handleAddBonus} className="flex flex-col sm:flex-row gap-4 max-w-4xl mx-auto bg-neo-white p-6 border-2 border-neo-black shadow-[4px_4px_0_#111] relative mb-8">
                     <div className="absolute -top-4 left-4 bg-white px-2 font-black uppercase text-gray-500 tracking-widest text-xs">Add New Bonus</div>
-                    <input value={newBonusName} onChange={e => setNewBonusName(e.target.value)} className="flex-1 border-b-4 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., Pitch Presentation" />
-                    <button disabled={busy || tracks.length === 0} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-[#fff] shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all disabled:opacity-50">+ Add Setup</button>
+                    <input value={newBonusName} onChange={e => setNewBonusName(e.target.value)} className="flex-1 border-b-2 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., Pitch Presentation" />
+                    <button disabled={busy || tracks.length === 0} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-[#fff] shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all disabled:opacity-50">+ Add Setup</button>
                   </form>
 
                   <div className="max-w-4xl mx-auto space-y-4">
                     {activeBonusNames.map((b, idx) => (
-                      <div key={b} className="flex flex-col sm:flex-row items-center justify-between p-4 border-4 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] gap-4 group hover:border-neo-black transition-colors">
+                      <div key={b} className="flex flex-col sm:flex-row items-center justify-between p-4 border-2 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] gap-4 group hover:border-neo-black transition-colors">
                         <span className="text-neo-black font-hero text-3xl truncate flex-1 uppercase tracking-wider"><span className="text-zinc-600 mr-3">{idx + 1}.</span>{b}</span>
                         <div className="flex gap-3">
-                          <button disabled={busy} onClick={() => handleRenameBonus(b)} className="px-4 py-2 border-4 border-neo-black text-neo-black font-hero text-xl uppercase tracking-widest hover:border-neo-black hover:text-neo-black transition-colors">RENAME</button>
+                          <button disabled={busy} onClick={() => handleRenameBonus(b)} className="px-4 py-2 border-2 border-neo-black text-neo-black font-hero text-xl uppercase tracking-widest hover:border-neo-black hover:text-neo-black transition-colors">RENAME</button>
                           <button disabled={busy || idx === 0} onClick={() => handleMoveBonus(idx, 'up')} className="px-4 py-2 bg-neo-lightgray text-neo-black font-hero text-xl uppercase hover:bg-neo-lightgray disabled:opacity-30 transition-colors">UP</button>
                           <button disabled={busy || idx === activeBonusNames.length - 1} onClick={() => handleMoveBonus(idx, 'down')} className="px-4 py-2 bg-neo-lightgray text-neo-black font-hero text-xl uppercase hover:bg-neo-lightgray disabled:opacity-30 transition-colors">DN</button>
-                          <button disabled={busy} onClick={() => handleDeleteBonus(b)} className="px-4 py-2 border-4 border-neo-black text-neo-red font-hero text-xl uppercase tracking-widest hover:bg-neo-red hover:text-neo-black transition-colors">REMOVE</button>
+                          <button disabled={busy} onClick={() => handleDeleteBonus(b)} className="px-4 py-2 border-2 border-neo-black text-neo-red font-hero text-xl uppercase tracking-widest hover:bg-neo-red hover:text-neo-black transition-colors">REMOVE</button>
                         </div>
                       </div>
                     ))}
                     {activeBonusNames.length === 0 && (
-                      <div className="border-4 border-dashed border-neo-black p-8 text-center font-hero text-2xl text-zinc-600 uppercase tracking-widest">
+                      <div className="border-2 border-dashed border-neo-black p-8 text-center font-hero text-2xl text-zinc-600 uppercase tracking-widest">
                         No custom bonuses active in this track.
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-4 border-neo-black pb-6">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-neo-black pb-6">
                   <div>
                     <h2 className="font-mono font-black text-3xl sm:text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Assign Values</h2>
                     <p className="text-neo-black font-bold tracking-widest uppercase text-sm mt-2">Inject external bonuses per team</p>
@@ -738,7 +716,7 @@ export default function AdminPage() {
                     <select
                       value={scoreFilterTrack}
                       onChange={(e) => setScoreFilterTrack(e.target.value)}
-                      className="border-4 border-neo-black bg-neo-white px-4 py-3 text-neo-black outline-none focus:border-neo-black transition-all font-hero text-2xl tracking-widest uppercase cursor-pointer shadow-[4px_4px_0_#111]"
+                      className="border-2 border-neo-black bg-neo-white px-4 py-3 text-neo-black outline-none focus:border-neo-black transition-all font-hero text-2xl tracking-widest uppercase cursor-pointer shadow-[4px_4px_0_#111]"
                     >
                       <option value="all">ALL TRACKS</option>
                       {tracks.map(t => (
@@ -748,7 +726,7 @@ export default function AdminPage() {
                     <button
                       disabled={busy}
                       onClick={handleSaveAllBonuses}
-                      className="border-4 border-neo-black bg-neo-yellow px-4 sm:px-8 py-3 font-hero text-lg sm:text-2xl tracking-wide sm:tracking-widest uppercase text-neo-white transition hover:-translate-y-1 shadow-[4px_4px_0_#111] hover:shadow-[6px_6px_0_#00F0FF] disabled:opacity-50"
+                      className="border-2 border-neo-black bg-neo-yellow px-4 sm:px-8 py-3 font-hero text-lg sm:text-2xl tracking-wide sm:tracking-widest uppercase text-neo-white transition hover:-translate-y-1 shadow-[4px_4px_0_#111] hover:shadow-[6px_6px_0_#00F0FF] disabled:opacity-50"
                     >
                       SAVE ALL BONUSES
                     </button>
@@ -764,11 +742,11 @@ export default function AdminPage() {
                     const values = editById.get(t.id) || {}
                     const teamBonusNames = bonusesByTrack?.[t.track] || []
                     return (
-                      <div key={t.id} className="border-4 border-neo-black bg-neo-white flex flex-col justify-between shadow-[4px_4px_0_#111] hover:border-neo-black hover:-translate-y-1 transition-all overflow-hidden group">
-                        <div className="p-5 border-b-4 border-neo-black bg-white/50">
+                      <div key={t.id} className="border-2 border-neo-black bg-neo-white flex flex-col justify-between shadow-[4px_4px_0_#111] hover:border-neo-black hover:-translate-y-1 transition-all overflow-hidden group">
+                        <div className="p-5 border-b-2 border-neo-black bg-white">
                           <div className="flex justify-between items-start gap-4">
                             <h3 className="font-hero text-3xl text-neo-black truncate">{t.name}</h3>
-                            <span className={`px-2 py-1 text-xs font-black uppercase tracking-widest border-4 ${t.track === 'hardware' ? 'border-4099-orange text-2099-orange' : 'border-neo-black text-neo-black'}`}>
+                            <span className={`px-2 py-1 text-xs font-black uppercase tracking-widest border-2 ${t.track === 'hardware' ? 'border-2099-orange text-2099-orange' : 'border-neo-black text-neo-black'}`}>
                               {t.track}
                             </span>
                           </div>
@@ -782,7 +760,7 @@ export default function AdminPage() {
                                     type="number" 
                                     value={values[bname] === 0 ? '' : (values[bname] || '')} 
                                     onChange={e => setEditById(m => new Map(m).set(t.id, { ...values, [bname]: num(e.target.value) }))}
-                                    className="border-b-4 border-neo-black bg-white p-2 font-hero text-2xl w-full text-neo-black outline-none focus:border-neo-black transition-colors text-center"
+                                    className="border-b-2 border-neo-black bg-white p-2 font-hero text-2xl w-full text-neo-black outline-none focus:border-neo-black transition-colors text-center"
                                   />
                                 </label>
                               ))}
@@ -791,8 +769,8 @@ export default function AdminPage() {
                               )}
                           </div>
                         </div>
-                        <div className="p-4 bg-white border-t-4 border-neo-black flex gap-4">
-                          <button onClick={()=>handleSaveBonus(t.id)} className="flex-1 bg-neo-yellow border-4 border-neo-black py-2 font-hero text-xl text-neo-white uppercase tracking-widest shadow-[3px_3px_0_#111] hover:bg-white transition-colors">Save Team</button>
+                        <div className="p-4 bg-white border-t-2 border-neo-black flex gap-4">
+                          <button onClick={()=>handleSaveBonus(t.id)} className="flex-1 bg-neo-yellow border-2 border-neo-black py-2 font-hero text-xl text-neo-white uppercase tracking-widest shadow-[4px_4px_0_#111] hover:bg-white transition-colors">Save Team</button>
                         </div>
                       </div>
                     )
@@ -803,15 +781,13 @@ export default function AdminPage() {
 
             {/* MANAGE RUBRICS TAB */}
             {activeTab === 'rubrics' && (
-              <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-neo-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-4 border-neo-black pb-6 mb-8">
+              <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] relative overflow-hidden">                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-neo-black pb-6 mb-8">
                   <div>
                     <h2 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Scoring Rubrics</h2>
                     <p className="text-neo-black font-bold tracking-widest uppercase text-sm mt-2">Dynamic criteria builder for Judges</p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <select value={rubricTrack} onChange={e => setRubricTrack(e.target.value)} className="border-4 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[2px_2px_0_#111]">
+                    <select value={rubricTrack} onChange={e => setRubricTrack(e.target.value)} className="border-2 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]">
                       {tracks.length === 0 ? (
                         <option value="">NO TRACKS</option>
                       ) : (
@@ -820,14 +796,14 @@ export default function AdminPage() {
                         ))
                       )}
                     </select>
-                    <select value={rubricRound} onChange={e => setRubricRound(e.target.value)} className="border-4 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[2px_2px_0_#111]">
+                    <select value={rubricRound} onChange={e => setRubricRound(e.target.value)} className="border-2 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]">
                       {(roundsByTrack?.[rubricTrack] || []).map(r => (
                         <option key={r} value={r}>{r}</option>
                       ))}
                     </select>
                     <button 
                       onClick={handleToggleRoundLock}
-                      className={`px-6 py-2 border-4 font-hero text-2xl uppercase tracking-widest transition-all shadow-[4px_4px_0_#111] hover:-translate-y-1 ${
+                      className={`px-6 py-2 border-2 font-hero text-2xl uppercase tracking-widest transition-all shadow-[4px_4px_0_#111] hover:-translate-y-1 ${
                         lockedRounds.includes(`${rubricTrack}_${rubricRound}`) 
                           ? 'bg-neo-red border-neo-black text-neo-black hover:bg-white hover:text-neo-red' 
                           : 'bg-neo-lightgray border-neo-black text-gray-500 hover:border-neo-black hover:text-neo-black'
@@ -839,47 +815,47 @@ export default function AdminPage() {
                 </div>
 
                 {!rubricRound ? (
-                   <div className="text-center p-8 text-gray-500 font-bold uppercase tracking-widest border-4 border-dashed border-neo-black">No rounds found for this track. Create rounds first.</div>
+                   <div className="text-center p-8 text-gray-500 font-bold uppercase tracking-widest border-2 border-dashed border-neo-black">No rounds found for this track. Create rounds first.</div>
                 ) : (
                   <div className="relative z-10 grid gap-8 lg:grid-cols-12">
-                     <div className="lg:col-span-5 border-4 border-neo-black bg-neo-white p-6 shadow-brutal flex flex-col justify-between">
+                     <div className="lg:col-span-5 border-2 border-neo-black bg-neo-white p-6 shadow-[4px_4px_0_#111] flex flex-col justify-between">
                        <div>
                          <h3 className="font-hero text-3xl uppercase text-neo-black mb-6">Add Parameter</h3>
                          <form onSubmit={handleAddRubricElement} className="flex flex-col gap-6">
                            <label className="flex flex-col gap-2">
                              <div className="text-xs uppercase text-gray-500 font-bold tracking-widest">Parameter Label</div>
-                             <input value={newRubricRow.label} onChange={e => setNewRubricRow(m => ({...m, label: e.target.value}))} className="border-b-4 border-neo-black bg-white p-3 font-hero text-2xl text-neo-black outline-none focus:border-neo-black transition-colors" placeholder="e.g. Working Prototype" />
+                             <input value={newRubricRow.label} onChange={e => setNewRubricRow(m => ({...m, label: e.target.value}))} className="border-b-2 border-neo-black bg-white p-3 font-hero text-2xl text-neo-black outline-none focus:border-neo-black transition-colors" placeholder="e.g. Working Prototype" />
                            </label>
                            <label className="flex flex-col gap-2">
                              <div className="text-xs uppercase text-gray-500 font-bold tracking-widest">Max Marks</div>
-                             <input type="number" min="1" value={newRubricRow.max} onChange={e => setNewRubricRow(m => ({...m, max: e.target.value}))} className="border-b-4 border-neo-black bg-white p-3 font-hero text-2xl text-neo-black outline-none focus:border-neo-black transition-colors" placeholder="e.g. 20" />
+                             <input type="number" min="1" value={newRubricRow.max} onChange={e => setNewRubricRow(m => ({...m, max: e.target.value}))} className="border-b-2 border-neo-black bg-white p-3 font-hero text-2xl text-neo-black outline-none focus:border-neo-black transition-colors" placeholder="e.g. 20" />
                            </label>
-                           <button disabled={busy || tracks.length === 0 || !rubricRound} className="bg-neo-yellow mt-4 px-6 py-4 font-hero text-2xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all disabled:opacity-50">
+                           <button disabled={busy || tracks.length === 0 || !rubricRound} className="bg-neo-yellow mt-4 px-6 py-4 font-hero text-2xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all disabled:opacity-50">
                              + ADD CRITERION
                            </button>
                          </form>
                        </div>
                      </div>
                      <div className="lg:col-span-7">
-                        <div className="border-4 border-neo-black bg-white/50 p-6 shadow-[8px_8px_0_#111] h-full">
+                        <div className="border-2 border-neo-black bg-white p-6 shadow-[4px_4px_0_#111] h-full">
                            <div className="flex justify-between items-center mb-6">
                              <h3 className="font-hero text-3xl uppercase text-neo-black">Active Rubric Layout</h3>
                              <div className="text-gray-500 font-black uppercase text-xs tracking-widest">Total: {currentRubricDef.reduce((acc, c) => acc + c.max, 0)} Marks</div>
                            </div>
                            <div className="space-y-4">
                              {!currentRubricDef.length && (
-                               <div className="text-center p-8 text-gray-500 font-bold uppercase tracking-widest border-4 border-dashed border-neo-black">
+                               <div className="text-center p-8 text-gray-500 font-bold uppercase tracking-widest border-2 border-dashed border-neo-black">
                                  No specific criteria declared. Judges will see a single overarching 'Total Score' box.
                                </div>
                              )}
                              {currentRubricDef.map((cr, idx) => (
-                               <div key={cr.id} className="flex flex-col sm:flex-row items-center justify-between p-4 border-4 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] group hover:border-neo-black">
-                                 <div className="flex-1 w-full truncate border-b-4 sm:border-0 border-neo-black pb-2 sm:pb-0 mb-2 sm:mb-0">
+                               <div key={cr.id} className="flex flex-col sm:flex-row items-center justify-between p-4 border-2 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] group hover:border-neo-black">
+                                 <div className="flex-1 w-full truncate border-b-2 sm:border-0 border-neo-black pb-2 sm:pb-0 mb-2 sm:mb-0">
                                     <span className="text-neo-black font-hero text-2xl uppercase tracking-wider block truncate"><span className="text-zinc-600 mr-2">{idx+1}.</span>{cr.label}</span>
                                  </div>
                                  <div className="flex gap-4 items-center w-full sm:w-auto justify-between">
                                     <span className="text-neo-black font-hero text-2xl uppercase tracking-widest">MAX: {cr.max}</span>
-                                    <button disabled={busy} onClick={() => handleDeleteRubricElement(cr.id)} className="bg-neo-red text-neo-black font-hero px-4 py-2 uppercase tracking-widest hover:bg-white hover:text-neo-red transition-colors border-4 border-neo-black shadow-brutal">Del</button>
+                                    <button disabled={busy} onClick={() => handleDeleteRubricElement(cr.id)} className="bg-neo-red text-neo-black font-hero px-4 py-2 uppercase tracking-widest hover:bg-white hover:text-neo-red transition-colors border-2 border-neo-black shadow-[4px_4px_0_#111]">Del</button>
                                  </div>
                                </div>
                              ))}
@@ -895,22 +871,22 @@ export default function AdminPage() {
             {activeTab === 'judges' && (
               <div className="space-y-8">
                 <div className="grid gap-8 lg:grid-cols-2">
-                  <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal max-w-4xl overflow-hidden relative">
+                  <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] max-w-4xl overflow-hidden relative">
                     <div className="absolute top-0 -left-10 w-40 h-40 bg-neo-red/10 rounded-full blur-3xl pointer-events-none"></div>
                     <div className="relative z-10">
                       <div className="mb-8">
-                        <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[3px_3px_0_#FFD600]">Register Judge</h2>
+                        <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[4px_4px_0_#FFD600]">Register Judge</h2>
                         <p className="text-neo-red font-bold tracking-widest uppercase text-sm mt-2">Whitelist an evaluator</p>
                       </div>
 
                       <form onSubmit={handleAddJudge} className="flex flex-col gap-4 mb-6">
-                        <input value={addJudgeForm.uid} onChange={e => setAddJudgeForm(f => ({...f, uid: e.target.value}))} className="w-full border-b-4 border-neo-black bg-neo-white p-3 font-hero text-xl sm:text-2xl outline-none focus:border-neo-black text-neo-black transition-colors" placeholder="Copy/Paste Judge Social Handle (e.g. dev#1234)" />
+                        <input value={addJudgeForm.uid} onChange={e => setAddJudgeForm(f => ({...f, uid: e.target.value}))} className="w-full border-b-2 border-neo-black bg-neo-white p-3 font-hero text-xl sm:text-2xl outline-none focus:border-neo-black text-neo-black transition-colors" placeholder="Copy/Paste Judge Social Handle (e.g. dev#1234)" />
                         <div className="flex flex-col xl:flex-row gap-4">
-                          <input value={addJudgeForm.name} onChange={e => setAddJudgeForm(f => ({...f, name: e.target.value}))} className="w-full xl:flex-1 border-b-4 border-neo-black bg-neo-white p-3 font-hero text-xl sm:text-2xl outline-none focus:border-neo-black text-neo-black transition-colors" placeholder="Display Name (e.g. Dr. Alan)" />
-                          <button disabled={busy} className="w-full xl:w-auto bg-neo-red px-6 py-3 font-hero text-xl sm:text-2xl uppercase tracking-widest text-neo-black border-4 border-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all disabled:opacity-50">Authorize</button>
+                          <input value={addJudgeForm.name} onChange={e => setAddJudgeForm(f => ({...f, name: e.target.value}))} className="w-full xl:flex-1 border-b-2 border-neo-black bg-neo-white p-3 font-hero text-xl sm:text-2xl outline-none focus:border-neo-black text-neo-black transition-colors" placeholder="Display Name (e.g. Dr. Alan)" />
+                          <button disabled={busy} className="w-full xl:w-auto bg-neo-red px-6 py-3 font-hero text-xl sm:text-2xl uppercase tracking-widest text-neo-black border-2 border-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all disabled:opacity-50">Authorize</button>
                         </div>
                       </form>
-                      <p className="text-sm font-medium text-gray-500 bg-neo-white/50 p-3 border-l-4 border-neo-black">
+                      <p className="text-sm font-medium text-gray-500 bg-neo-white/50 p-3 border-l-2 border-neo-black">
                         <strong className="text-neo-black block mb-1">How this works:</strong>
                         1. The evaluator visits your leaderboard and signs up/logs in.<br/>
                         2. They copy their customized Social Handle and send it to you.<br/>
@@ -919,11 +895,11 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-[8px_8px_0_#111]">
+                  <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111]">
                     <h3 className="font-mono font-black text-5xl uppercase text-neo-black mb-8" style={{ textShadow: "3px 3px 0px #FFD600" }}>Active Panel</h3>
                     <div className="space-y-4">
                       {judgesList.map(j => (
-                        <div key={j.id} className="flex items-center justify-between p-4 border-4 border-neo-black bg-neo-white shadow-brutal gap-4 group hover:border-neo-black transition-colors">
+                        <div key={j.id} className="flex items-center justify-between p-4 border-2 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] gap-4 group hover:border-neo-black transition-colors">
                           <div className="flex-1 truncate">
                             <span className="text-neo-black font-hero text-3xl uppercase tracking-wider block">{j.name}</span>
                             <span className="text-gray-500 font-bold text-xs font-mono uppercase tracking-widest mt-1 flex items-center gap-2">
@@ -935,9 +911,9 @@ export default function AdminPage() {
                           </div>
                           <div className="flex items-center gap-4">
                             {activeJudges.includes(j.id) ? (
-                              <span className="px-3 py-1 bg-neo-yellow/20 border-4 border-neo-black text-neo-black font-bold text-xs uppercase tracking-widest animate-pulse">LIVE</span>
+                              <span className="px-3 py-1 bg-neo-yellow/20 border-2 border-neo-black text-neo-black font-bold text-xs uppercase tracking-widest animate-pulse">LIVE</span>
                             ) : (
-                              <span className="px-3 py-1 bg-neo-lightgray/80 border-4 border-neo-black text-gray-500 font-bold text-xs uppercase tracking-widest">Revoked</span>
+                              <span className="px-3 py-1 bg-neo-lightgray/80 border-2 border-neo-black text-gray-500 font-bold text-xs uppercase tracking-widest">Revoked</span>
                             )}
                             <button disabled={busy} onClick={() => handleDeleteJudge(j.id, j.name)} className="font-hero text-xl text-neo-red underline underline-offset-4 hover:text-neo-black transition-colors">BAN</button>
                           </div>
@@ -955,10 +931,10 @@ export default function AdminPage() {
               <div className="space-y-8">
                 <div className="grid gap-8 lg:grid-cols-2">
                   {/* ADD TEAM CARD */}
-                  <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal flex flex-col justify-between relative overflow-hidden">
+                  <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] flex flex-col justify-between relative overflow-hidden">
                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-neo-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
                     <div className="relative z-10">
-                      <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[3px_3px_0_#FFD600] mb-2">Add Team</h2>
+                      <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[4px_4px_0_#FFD600] mb-2">Add Team</h2>
                       <p className="text-neo-black font-bold tracking-widest uppercase text-sm mb-6">Manually register a new team</p>
                       
                       <form onSubmit={handleAdd} className="flex flex-col gap-5">
@@ -968,12 +944,12 @@ export default function AdminPage() {
                             placeholder="Team Name" 
                             value={addForm.name} 
                             onChange={e => setAddForm({ ...addForm, name: e.target.value })} 
-                            className="w-full xl:flex-1 border-4 border-neo-black bg-neo-white p-4 font-hero text-2xl text-neo-black outline-none focus:bg-neo-yellow/10 transition-colors"
+                            className="w-full xl:flex-1 border-2 border-neo-black bg-neo-white p-4 font-hero text-2xl text-neo-black outline-none focus:bg-neo-yellow/10 transition-colors"
                           />
                           <select 
                             value={addForm.track} 
                             onChange={e => setAddForm({ ...addForm, track: e.target.value })} 
-                            className="w-full xl:w-auto border-4 border-neo-black bg-neo-white p-4 font-hero text-2xl text-neo-black outline-none focus:bg-neo-yellow/10 transition-colors tracking-widest uppercase cursor-pointer"
+                            className="w-full xl:w-auto border-2 border-neo-black bg-neo-white p-4 font-hero text-2xl text-neo-black outline-none focus:bg-neo-yellow/10 transition-colors tracking-widest uppercase cursor-pointer"
                           >
                             {tracks.length === 0 ? (
                               <option value="">NO TRACKS</option>
@@ -984,7 +960,7 @@ export default function AdminPage() {
                             )}
                           </select>
                         </div>
-                        <button disabled={busy || tracks.length === 0} className="bg-neo-yellow px-8 py-4 font-hero text-3xl uppercase tracking-widest text-neo-black border-4 border-neo-black shadow-[6px_6px_0_#111] hover:-translate-y-1 hover:shadow-[8px_8px_0_#111] transition-all disabled:bg-neo-lightgray disabled:text-gray-400 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed">
+                        <button disabled={busy || tracks.length === 0} className="bg-neo-yellow px-8 py-4 font-hero text-3xl uppercase tracking-widest text-neo-black border-2 border-neo-black shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all disabled:bg-neo-lightgray disabled:text-gray-400 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed">
                           {tracks.length === 0 ? 'CREATE TRACK FIRST' : 'CREATE TEAM'}
                         </button>
                       </form>
@@ -992,17 +968,17 @@ export default function AdminPage() {
                   </div>
                   
                   {/* IMPORT CSV CARD */}
-                  <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal relative overflow-hidden">
+                  <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] relative overflow-hidden">
                     <div className="absolute -top-10 -left-10 w-40 h-40 bg-neo-black/10 rounded-full blur-3xl pointer-events-none"></div>
                     <div className="relative z-10">
-                      <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[3px_3px_0_#FFD600] mb-2">Import CSV</h2>
+                      <h2 className="font-hero text-5xl uppercase text-neo-black drop-shadow-[4px_4px_0_#FFD600] mb-2">Import CSV</h2>
                       <p className="text-neo-black font-bold tracking-widest uppercase text-sm mb-2">Upload a spreadsheet of teams</p>
-                      <p className="text-sm font-medium text-gray-500 mb-6 bg-neo-white/50 p-3 border-l-4 border-neo-black">
+                      <p className="text-sm font-medium text-gray-500 mb-6 bg-neo-white/50 p-3 border-l-2 border-neo-black">
                         Columns required: <span className="font-bold text-neo-black">name</span>.<br />
                         Optional columns: <span className="font-bold text-neo-black">track</span> (hardware/software), plus any round names exactly matching the track columns (e.g. <span className="font-bold text-neo-black">Round 1</span>).
                       </p>
-                      <input type="file" accept=".csv" onChange={e => handleCsvFile(e.target.files?.[0])} className="w-full border-4 border-neo-black bg-neo-white p-3 font-medium text-neo-black file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-4 file:border-neo-black file:text-sm file:font-black file:uppercase file:tracking-widest file:bg-neo-yellow file:text-neo-black hover:file:bg-neo-white transition-all cursor-pointer" />
-                      <button disabled={busy || !csvState.parsedRows.length} onClick={handleImportCsv} className="mt-6 w-full bg-neo-black border-4 border-neo-black px-8 py-4 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[6px_6px_0_#FFD600] hover:-translate-y-1 hover:shadow-[8px_8px_0_#FFD600] transition-all disabled:bg-neo-lightgray disabled:text-gray-400 disabled:shadow-none disabled:border-gray-400 disabled:translate-y-0 disabled:cursor-not-allowed">
+                      <input type="file" accept=".csv" onChange={e => handleCsvFile(e.target.files?.[0])} className="w-full border-2 border-neo-black bg-neo-white p-3 font-medium text-neo-black file:mr-4 file:py-2 file:px-4 file:rounded-none file:border-2 file:border-neo-black file:text-sm file:font-black file:uppercase file:tracking-widest file:bg-neo-yellow file:text-neo-black hover:file:bg-neo-white transition-all cursor-pointer" />
+                      <button disabled={busy || !csvState.parsedRows.length} onClick={handleImportCsv} className="mt-6 w-full bg-neo-black border-2 border-neo-black px-8 py-4 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 hover:shadow-[4px_4px_0_#FFD600] transition-all disabled:bg-neo-lightgray disabled:text-gray-400 disabled:shadow-none disabled:border-gray-400 disabled:translate-y-0 disabled:cursor-not-allowed">
                         {csvState.parsedRows.length ? `Import ${csvState.parsedRows.length} Teams` : 'Upload File First'}
                       </button>
                     </div>
@@ -1010,7 +986,7 @@ export default function AdminPage() {
                 </div>
                 
                 {/* CURRENT TEAMS LIST */}
-                <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-[8px_8px_0_#111]">
+                <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111]">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <h3 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Team Roster</h3>
                     <div className="flex items-center gap-4 w-full md:w-auto">
@@ -1019,13 +995,13 @@ export default function AdminPage() {
                         placeholder="Search teams..."
                         value={manageTeamSearchQuery}
                         onChange={(e) => setManageTeamSearchQuery(e.target.value)}
-                        className="border-4 border-neo-black bg-neo-white px-4 py-3 text-neo-black outline-none focus:border-neo-black transition-all flex-1 md:w-64 font-hero text-2xl placeholder:text-zinc-600 shadow-brutal"
+                        className="border-2 border-neo-black bg-neo-white px-4 py-3 text-neo-black outline-none focus:border-neo-black transition-all flex-1 md:w-64 font-hero text-2xl placeholder:text-zinc-600 shadow-[4px_4px_0_#111]"
                       />
                       {teams.length > 0 && (
                         <button
                           onClick={handleDeleteAllTeams}
                           disabled={busy}
-                          className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-4 border-neo-black transition-colors shadow-brutal"
+                          className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-2 border-neo-black transition-colors shadow-[4px_4px_0_#111]"
                           title="Delete all teams"
                         >
                           DELETE ALL
@@ -1039,8 +1015,8 @@ export default function AdminPage() {
                       .sort((a, b) => a.name.localeCompare(b.name))
                       .filter(t => t.name.toLowerCase().includes(manageTeamSearchQuery.toLowerCase()))
                       .map(t => (
-                      <div key={t.id} className="flex flex-col border-4 border-neo-black bg-neo-white shadow-[4px_4px_0_#000] overflow-hidden group hover:border-neo-black transition-colors">
-                        <div className="p-4 bg-white/50 border-b-4 border-neo-black font-hero text-2xl truncate text-neo-black">
+                      <div key={t.id} className="flex flex-col border-2 border-neo-black bg-neo-white shadow-[4px_4px_0_#000] overflow-hidden group hover:border-neo-black transition-colors">
+                        <div className="p-4 bg-white border-b-2 border-neo-black font-hero text-2xl truncate text-neo-black">
                           {t.name}
                         </div>
                         <div className="flex p-4 gap-4 items-center justify-between bg-neo-white">
@@ -1048,7 +1024,7 @@ export default function AdminPage() {
                             value={t.track} 
                             onChange={(e) => handleUpdateTrack(t.id, e.target.value)} 
                             disabled={busy}
-                            className="font-hero text-xl px-3 py-2 border-4 transition-colors outline-none cursor-pointer uppercase border-neo-black text-neo-black bg-neo-white"
+                            className="font-hero text-xl px-3 py-2 border-2 transition-colors outline-none cursor-pointer uppercase border-neo-black text-neo-black bg-neo-white"
                           >
                             {tracks.map(trk => (
                               <option key={trk.id} value={trk.id} className="bg-white">{trk.name.toUpperCase()}</option>
@@ -1065,24 +1041,24 @@ export default function AdminPage() {
 
             {/* MANAGE ROUNDS TAB */}
             {activeTab === 'rounds' && (
-              <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md p-6 lg:p-8 shadow-brutal max-w-4xl mx-auto overflow-hidden relative">
+              <div className="border-2 border-neo-black bg-white  p-6 lg:p-8 shadow-[4px_4px_0_#111] max-w-4xl mx-auto overflow-hidden relative">
                 <div className="absolute top-0 -left-10 w-40 h-40 bg-neo-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
                 <div className="relative z-10">
-                  <div className="mb-12 border-b-4 border-neo-black pb-8">
+                  <div className="mb-12 border-b-2 border-neo-black pb-8">
                     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6">
                       <div>
                         <h2 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Event Tracks</h2>
                         <p className="text-neo-black font-bold tracking-widest uppercase text-sm mt-2">Create custom competitive tracks</p>
                       </div>
                     </div>
-                    <form onSubmit={handleAddTrack} className="flex flex-col sm:flex-row gap-4 mb-8 bg-neo-white p-6 border-4 border-neo-black shadow-[6px_6px_0_#111] relative">
+                    <form onSubmit={handleAddTrack} className="flex flex-col sm:flex-row gap-4 mb-8 bg-neo-white p-6 border-2 border-neo-black shadow-[4px_4px_0_#111] relative">
                       <div className="absolute -top-4 left-4 bg-white px-2 font-black uppercase text-gray-500 tracking-widest text-xs">Create Track</div>
-                      <input value={newTrackName} onChange={e => setNewTrackName(e.target.value)} className="flex-1 border-b-4 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., AI/ML or Web3" />
-                      <button disabled={busy} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 hover:shadow-[6px_6px_0_#FFD600] transition-all disabled:opacity-50">Add Track</button>
+                      <input value={newTrackName} onChange={e => setNewTrackName(e.target.value)} className="flex-1 border-b-2 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., AI/ML or Web3" />
+                      <button disabled={busy} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 hover:shadow-[4px_4px_0_#FFD600] transition-all disabled:opacity-50">Add Track</button>
                     </form>
                     <div className="flex flex-wrap gap-4">
                       {tracks.map(t => (
-                        <div key={t.id} className="border-4 border-neo-black bg-white px-4 py-3 flex items-center gap-4 shadow-[4px_4px_0_#111]">
+                        <div key={t.id} className="border-2 border-neo-black bg-white px-4 py-3 flex items-center gap-4 shadow-[4px_4px_0_#111]">
                           <span className="font-hero text-2xl uppercase tracking-widest">{t.name}</span>
                           <button onClick={() => handleDeleteTrack(t.id, t.name)} className="text-neo-red font-black hover:text-neo-black transition-colors" title="Delete Track">X</button>
                         </div>
@@ -1090,7 +1066,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b-4 border-neo-black pb-6 mb-8">
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b-2 border-neo-black pb-6 mb-8">
                     <div>
                       <h2 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Column Structure</h2>
                       <p className="text-neo-black font-bold tracking-widest uppercase text-sm mt-2">Manage scoring factors</p>
@@ -1099,7 +1075,7 @@ export default function AdminPage() {
                       <select 
                         value={roundManageTrack} 
                         onChange={e => setRoundManageTrack(e.target.value)} 
-                        className="border-4 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]"
+                        className="border-2 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]"
                       >
                         {tracks.length === 0 ? (
                           <option value="">NO TRACKS</option>
@@ -1112,7 +1088,7 @@ export default function AdminPage() {
                       <button
                         onClick={handleResetRoundScores}
                         disabled={busy}
-                        className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-4 border-neo-black transition-colors shadow-[4px_4px_0_#111]"
+                        className="font-hero text-xl px-4 py-3 bg-neo-red text-neo-black uppercase tracking-widest hover:bg-white hover:text-neo-red border-2 border-neo-black transition-colors shadow-[4px_4px_0_#111]"
                         title={`Reset ${roundManageTrack} Main Round Scores`}
                       >
                         RESET SCORES
@@ -1120,10 +1096,10 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <form onSubmit={handleAddRound} className="flex flex-col sm:flex-row gap-4 mb-10 bg-neo-white p-6 border-4 border-neo-black shadow-[6px_6px_0_#111] relative">
+                  <form onSubmit={handleAddRound} className="flex flex-col sm:flex-row gap-4 mb-10 bg-neo-white p-6 border-2 border-neo-black shadow-[4px_4px_0_#111] relative">
                     <div className="absolute -top-4 left-4 bg-white px-2 font-black uppercase text-gray-500 tracking-widest text-xs">Add New Column</div>
-                    <input value={newRoundName} onChange={e => setNewRoundName(e.target.value)} className="flex-1 border-b-4 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., UI/UX Design" />
-                    <button disabled={busy || tracks.length === 0} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 hover:shadow-[6px_6px_0_#FFD600] transition-all disabled:opacity-50">Create</button>
+                    <input value={newRoundName} onChange={e => setNewRoundName(e.target.value)} className="flex-1 border-b-2 border-neo-black bg-transparent p-3 font-hero text-3xl outline-none focus:border-neo-black text-neo-black" placeholder="e.g., UI/UX Design" />
+                    <button disabled={busy || tracks.length === 0} className="bg-neo-black px-8 py-3 font-hero text-3xl uppercase tracking-widest text-neo-white shadow-[4px_4px_0_#FFD600] hover:-translate-y-1 hover:shadow-[4px_4px_0_#FFD600] transition-all disabled:opacity-50">Create</button>
                   </form>
 
                   <div>
@@ -1135,18 +1111,18 @@ export default function AdminPage() {
                     
                     <div className="space-y-4">
                       {activeRoundNames.map((r, idx) => (
-                        <div key={r} className="flex flex-col sm:flex-row items-center justify-between p-4 border-4 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] gap-4 group hover:border-neo-black transition-colors">
+                        <div key={r} className="flex flex-col sm:flex-row items-center justify-between p-4 border-2 border-neo-black bg-neo-white shadow-[4px_4px_0_#111] gap-4 group hover:border-neo-black transition-colors">
                           <span className="text-neo-black font-hero text-3xl truncate flex-1 uppercase tracking-wider"><span className="text-zinc-600 mr-3">{idx + 1}.</span>{r}</span>
                           <div className="flex gap-3">
-                            <button disabled={busy} onClick={() => handleRenameRound(r)} className="px-4 py-2 border-4 border-neo-black text-neo-black font-hero text-xl uppercase tracking-widest hover:border-neo-black hover:text-neo-black transition-colors">RENAME</button>
+                            <button disabled={busy} onClick={() => handleRenameRound(r)} className="px-4 py-2 border-2 border-neo-black text-neo-black font-hero text-xl uppercase tracking-widest hover:border-neo-black hover:text-neo-black transition-colors">RENAME</button>
                             <button disabled={busy || idx === 0} onClick={() => handleMoveRound(idx, 'up')} className="px-4 py-2 bg-neo-lightgray text-neo-black font-hero text-xl uppercase hover:bg-neo-lightgray disabled:opacity-30 transition-colors">UP</button>
                             <button disabled={busy || idx === activeRoundNames.length - 1} onClick={() => handleMoveRound(idx, 'down')} className="px-4 py-2 bg-neo-lightgray text-neo-black font-hero text-xl uppercase hover:bg-neo-lightgray disabled:opacity-30 transition-colors">DN</button>
-                            <button disabled={busy} onClick={() => handleDeleteRound(r)} className="px-4 py-2 border-4 border-neo-black text-neo-red font-hero text-xl uppercase tracking-widest hover:bg-neo-red hover:text-neo-black transition-colors">REMOVE</button>
+                            <button disabled={busy} onClick={() => handleDeleteRound(r)} className="px-4 py-2 border-2 border-neo-black text-neo-red font-hero text-xl uppercase tracking-widest hover:bg-neo-red hover:text-neo-black transition-colors">REMOVE</button>
                           </div>
                         </div>
                       ))}
                       {activeRoundNames.length === 0 && (
-                        <div className="border-4 border-dashed border-neo-black p-12 text-center font-hero text-2xl text-zinc-600 uppercase tracking-widest">
+                        <div className="border-2 border-dashed border-neo-black p-12 text-center font-hero text-2xl text-zinc-600 uppercase tracking-widest">
                           No rounds active in this track.
                         </div>
                       )}
@@ -1202,11 +1178,9 @@ export default function AdminPage() {
               }
               
               return (
-                <div className="border-4 border-neo-black bg-white/90 backdrop-blur-md shadow-brutal relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-neo-yellow/10 rounded-full blur-3xl pointer-events-none"></div>
-                  
+                <div className="border-2 border-neo-black bg-white  shadow-[4px_4px_0_#111] relative overflow-hidden">                  
                   {/* Header */}
-                  <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 p-6 lg:p-8 border-b-4 border-neo-black">
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 p-6 lg:p-8 border-b-2 border-neo-black">
                     <div>
                       <h2 className="font-mono font-black text-5xl uppercase text-neo-black" style={{ textShadow: "3px 3px 0px #FFD600" }}>Score Viewer</h2>
                       <p className="text-neo-black font-bold tracking-widest uppercase text-sm mt-2">Read-only backup view of all teams and direct scores</p>
@@ -1216,7 +1190,7 @@ export default function AdminPage() {
                       <select
                         value={scoreViewTrack}
                         onChange={e => { setScoreViewTrack(e.target.value); setExpandedScoreTeam(null) }}
-                        className="border-4 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[2px_2px_0_#111]"
+                        className="border-2 border-neo-black bg-neo-white px-6 py-3 font-hero text-2xl text-neo-black outline-none focus:border-white transition-colors cursor-pointer shadow-[4px_4px_0_#111]"
                       >
                         {tracks.map(t => (
                           <option key={t.id} value={t.id}>{t.name.toUpperCase()} TRACK</option>
@@ -1230,7 +1204,7 @@ export default function AdminPage() {
                     <div style={{ minWidth: `${600 + viewRounds.length * 120 + viewBonuses.length * 140}px` }}>
                       
                       {/* Column Header Bar */}
-                      <div className="grid gap-0 bg-neo-white border-b-4 border-neo-black px-4 py-3 sticky top-0 z-20"
+                      <div className="grid gap-0 bg-neo-white border-b-2 border-neo-black px-4 py-3 sticky top-0 z-20"
                         style={{ gridTemplateColumns: `60px 1fr ${viewRounds.map(() => '120px').join(' ')} ${viewBonuses.map(() => '140px').join(' ')} 100px` }}
                       >
                         <div className="font-hero text-sm uppercase tracking-widest text-gray-500">#</div>
@@ -1257,13 +1231,13 @@ export default function AdminPage() {
                             {/* Overview Row */}
                             <div
                               onClick={() => setExpandedScoreTeam(isExpanded ? null : t.id)}
-                              className={`grid gap-0 items-center px-4 py-3 cursor-pointer transition-all border-b-4 border-neo-black/50 hover:bg-neo-yellow/20 ${
-                                isExpanded ? 'bg-neo-yellow/40 border-l-4 border-l-neo-black' : isTop3 ? 'bg-white/60' : (idx % 2 === 0 ? 'bg-white/20' : 'bg-neo-white/20')
+                              className={`grid gap-0 items-center px-4 py-3 cursor-pointer transition-all border-b-2 border-neo-black/50 hover:bg-neo-yellow/20 ${
+                                isExpanded ? 'bg-neo-yellow/40 border-l-2 border-l-neo-black' : isTop3 ? 'bg-white/60' : (idx % 2 === 0 ? 'bg-white/20' : 'bg-neo-white/20')
                               }`}
                               style={{ gridTemplateColumns: `60px 1fr ${viewRounds.map(() => '120px').join(' ')} ${viewBonuses.map(() => '140px').join(' ')} 100px` }}
                             >
                               {/* Rank */}
-                              <div className={`font-hero text-2xl tabular-nums ${isTop3 ? accentColorText : 'text-gray-500'} drop-shadow-[1px_1px_0_#111]`}>
+                              <div className={`font-hero text-2xl tabular-nums ${isTop3 ? accentColorText : 'text-gray-500'} drop-shadow-[4px_4px_0_#111]`}>
                                 {rank}
                               </div>
 
@@ -1315,7 +1289,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Footer */}
-                  <div className="relative z-10 px-6 py-4 bg-neo-white/50 border-t-4 border-neo-black flex flex-wrap gap-6 items-center justify-between">
+                  <div className="relative z-10 px-6 py-4 bg-neo-white/50 border-t-2 border-neo-black flex flex-wrap gap-6 items-center justify-between">
                     <div className="text-xs text-gray-500 font-bold uppercase tracking-widest">
                       {viewTeams.length} teams · {viewRounds.length} rounds · {viewBonuses.length} bonuses · Read-only
                     </div>
@@ -1325,7 +1299,7 @@ export default function AdminPage() {
                       </div>
                       <button
                         onClick={handleExportCSV}
-                        className="flex items-center gap-2 px-6 py-2 border-4 border-neo-black bg-neo-yellow text-neo-white font-hero text-xl uppercase tracking-widest shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[6px_6px_0_#111] transition-all"
+                        className="flex items-center gap-2 px-6 py-2 border-2 border-neo-black bg-neo-yellow text-neo-white font-hero text-xl uppercase tracking-widest shadow-[4px_4px_0_#111] hover:-translate-y-1 hover:shadow-[4px_4px_0_#111] transition-all"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/></svg>
                         EXPORT CSV
@@ -1339,13 +1313,13 @@ export default function AdminPage() {
           </div>
         )}
         {toast && (
-          <div className={`fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 border-4 px-4 sm:px-6 py-3 sm:py-4 font-bold shadow-brutal break-words ${toast.type==='error'?'bg-neo-red':'bg-neo-yellow text-neo-white'}`}>
+          <div className={`fixed bottom-4 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 z-50 border-2 px-4 sm:px-6 py-3 sm:py-4 font-bold shadow-[4px_4px_0_#111] break-words ${toast.type==='error'?'bg-neo-red':'bg-neo-yellow text-neo-white'}`}>
             {toast.message}
           </div>
         )}
         {modal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neo-black/80 backdrop-blur-sm">
-            <div className="border-4 border-neo-black bg-white p-8 shadow-[12px_12px_0_#FFD600] w-full max-w-lg relative">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neo-black/80 ">
+            <div className="border-2 border-neo-black bg-white p-8 shadow-[4px_4px_0_#FFD600] w-full max-w-lg relative">
               <h3 className="font-hero text-4xl uppercase text-neo-black mb-4">{modal.title}</h3>
               <p className="text-gray-600 font-bold mb-6 uppercase tracking-wider text-sm whitespace-pre-line">{modal.message}</p>
               
@@ -1355,7 +1329,7 @@ export default function AdminPage() {
                     type="text"
                     id="modalInput"
                     defaultValue={modal.defaultValue || ''}
-                    className="w-full border-4 border-neo-black bg-neo-white px-4 py-3 font-black text-lg outline-none focus:bg-white"
+                    className="w-full border-2 border-neo-black bg-neo-white px-4 py-3 font-black text-lg outline-none focus:bg-white"
                     autoFocus
                   />
                 </div>
@@ -1368,7 +1342,7 @@ export default function AdminPage() {
                     modal.onConfirm(val);
                     setModal(null);
                   }}
-                  className="flex-1 bg-neo-black text-white border-4 border-neo-black py-3 font-hero text-xl uppercase tracking-widest hover:bg-neo-yellow hover:text-neo-black transition-colors cursor-pointer"
+                  className="flex-1 bg-neo-black text-white border-2 border-neo-black py-3 font-hero text-xl uppercase tracking-widest hover:bg-neo-yellow hover:text-neo-black transition-colors cursor-pointer"
                 >
                   CONFIRM ⚡
                 </button>
@@ -1378,7 +1352,7 @@ export default function AdminPage() {
                       if (modal.onCancel) modal.onCancel();
                       setModal(null);
                     }}
-                    className="flex-1 bg-white text-neo-black border-4 border-neo-black py-3 font-hero text-xl uppercase tracking-widest hover:bg-neo-lightgray transition-colors cursor-pointer"
+                    className="flex-1 bg-white text-neo-black border-2 border-neo-black py-3 font-hero text-xl uppercase tracking-widest hover:bg-neo-lightgray transition-colors cursor-pointer"
                   >
                     CANCEL
                   </button>
@@ -1387,7 +1361,7 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-      </MotionDiv>
-    </div>
+      </PageMain>
+    </PageShell>
   )
 }

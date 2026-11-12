@@ -17,10 +17,10 @@ function getOrdinalRank(rank) {
 }
 
 function rowBg(rank) {
-  if (rank === 1) return 'bg-neo-yellow border-neo-black text-neo-black z-30 shadow-[6px_6px_0_#111]'
-  if (rank === 2) return 'bg-white border-neo-black text-neo-black z-20 shadow-[4px_4px_0_#111]'
-  if (rank === 3) return 'bg-neo-lightgray border-neo-black text-neo-black z-10 shadow-[4px_4px_0_#111]'
-  return 'bg-white border-neo-black text-zinc-500 hover:text-neo-black hover:-translate-y-1 hover:shadow-brutal transition-all shadow-[2px_2px_0_#111]'
+  if (rank === 1) return 'bg-neo-yellow border-neo-black text-neo-black z-30'
+  if (rank === 2) return 'bg-white border-neo-black text-neo-black z-20'
+  if (rank === 3) return 'bg-neo-lightgray border-neo-black text-neo-black z-10'
+  return 'bg-white border-neo-black text-zinc-700'
 }
 
 function textTone(rank) {
@@ -71,7 +71,7 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
             {/* Header */}
             <div
               style={desktopGridStyle}
-              className="gap-4 mb-4 px-6 py-4 font-black text-sm lg:text-base tracking-[0.2em] text-neo-white bg-neo-black border-4 border-neo-black shadow-[6px_6px_0_#FFD600]"
+              className="mb-2 gap-3 border-2 border-neo-black bg-neo-black px-4 py-3 text-[11px] font-black tracking-[0.14em] text-white shadow-[3px_3px_0_#FFD600]"
             >
               <div>RANK</div>
               <div>TEAM DESIGNATION</div>
@@ -105,12 +105,12 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
                       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                       style={desktopGridStyle}
                       className={[
-                        'gap-4 px-6 py-4 border-4 relative',
+                        'relative gap-3 border-2 px-4 py-3',
                         rowBg(rank),
                         isUpdated ? 'ring-4 ring-neo-yellow' : '',
                       ].join(' ')}
                     >
-                      <div className={`font-hero text-3xl lg:text-4xl ${textTone(rank)}`}>
+                      <div className={`font-hero text-2xl lg:text-3xl ${textTone(rank)}`}>
                         <motion.span
                           key={rank}
                           initial={{ scale: 1.5, y: -10 }}
@@ -124,7 +124,7 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
 
                       <div className="min-w-0 pr-4 flex items-center gap-3">
                         <MedalEmoji rank={rank} />
-                        <div className={`font-hero tracking-wide text-3xl lg:text-4xl break-words leading-tight ${textTone(rank)}`}>
+                        <div className={`font-hero text-2xl leading-tight tracking-[-0.02em] break-words lg:text-3xl ${textTone(rank)}`}>
                           {team.name}
                         </div>
                       </div>
@@ -137,7 +137,7 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
                         }
                         const score = (val && typeof val === 'object') ? (val.total ?? 0) : (val ?? 0)
                         return (
-                          <div key={i} className={`text-right font-hero text-3xl lg:text-4xl tabular-nums ${textTone(rank)}`}>
+                          <div key={i} className={`text-right font-hero text-2xl tabular-nums lg:text-3xl ${textTone(rank)}`}>
                             <motion.span
                               key={"R_" + score}
                               initial={{ scale: 1.5 }}
@@ -151,7 +151,7 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
                       })}
 
                       {bonusNames.map((b, i) => (
-                        <div key={`db_${i}`} className={`text-right font-hero text-3xl lg:text-4xl tabular-nums ${textTone(rank)}`}>
+                        <div key={`db_${i}`} className={`text-right font-hero text-2xl tabular-nums lg:text-3xl ${textTone(rank)}`}>
                           <motion.span
                             key={`B_${b}_${team.bonuses?.[b] || 0}`}
                             initial={{ scale: 1.5 }}
@@ -163,13 +163,13 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
                         </div>
                       ))}
 
-                      <div className={`text-right font-hero text-4xl lg:text-5xl tabular-nums ${scoreTone(rank)}`}>
+                      <div className={`text-right font-hero text-3xl tabular-nums lg:text-4xl ${scoreTone(rank)}`}>
                         <motion.span
                           key={team.total}
                           initial={{ scale: 1.5 }}
                           animate={{ scale: 1 }}
                           transition={{ type: 'spring', stiffness: 400 }}
-                          className={`inline-block ${rank === 1 ? 'bg-white px-2 border-4 border-neo-black shadow-[4px_4px_0_#111] -rotate-2' : ''}`}
+                          className={`inline-block ${rank === 1 ? '-rotate-1 border-2 border-neo-black bg-white px-1.5 shadow-[2px_2px_0_#111]' : ''}`}
                         >
                           {team.total}
                         </motion.span>
@@ -203,7 +203,7 @@ export default function LeaderboardTable({ teams, roundNames = [], bonusNames = 
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
                 className={[
-                  'border-4 relative transition-colors',
+                  'relative border-2',
                   rowBg(rank),
                   isUpdated ? 'ring-4 ring-neo-yellow' : '',
                 ].join(' ')}
