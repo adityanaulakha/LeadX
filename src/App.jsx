@@ -14,7 +14,7 @@ import useDashboardSFX from './hooks/useDashboardSFX.js'
 function App() {
   useDashboardSFX()
   return (
-    <div className="min-h-dvh bg-zinc-950 text-zinc-100">
+    <div className="min-h-dvh bg-neo-white text-neo-black">
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<AuthPage />} />

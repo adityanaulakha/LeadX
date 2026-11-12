@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signInWithPopup } from 'firebase/auth'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { auth, firebaseEnabled, googleProvider } from '../lib/firebase.js'
 import { useAuthState } from './AdminPage.jsx'
 import { sanitizeString } from '../utils/sanitize.js'
 import { ensureUserProfile } from '../lib/users.js'
+import { Button, Card, Field, Notice, PageShell, inputClass, focus } from '../ui/ui.jsx'
 
 export default function AuthPage() {
   const user = useAuthState()
@@ -131,151 +131,69 @@ export default function AuthPage() {
     }
   }
 
-  if (!firebaseEnabled) {
-    return <div className="min-h-screen bg-neo-white flex items-center justify-center p-8 text-neo-black font-hero text-3xl">FIREBASE NOT CONFIGURED</div>
-  }
-
   return (
-    <div className="min-h-screen bg-neo-white flex items-center justify-center p-4 sm:p-8 text-neo-black font-base relative overflow-hidden">
-      
-      {/* Decorative Grid Lines */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(17,17,17,0.05)_2px,transparent_2px),linear-gradient(90deg,rgba(17,17,17,0.05)_2px,transparent_2px)] bg-[size:32px_32px] pointer-events-none"></div>
+    <PageShell>
+      <div className="flex min-h-dvh items-center justify-center px-5 py-10">
+        <Card className="w-full max-w-md p-5 sm:p-8">
+          <Link to="/" className={`mb-6 inline-flex rounded-sm ${focus}`} aria-label="LeadX, home">
+            <img src="/Lead-X.png" alt="" className="h-9 w-auto" />
+          </Link>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-600">
+            {isSignUp ? 'New organizer' : 'Sign in'}
+          </p>
+          <h1 className="mt-2 font-hero text-[clamp(2.4rem,6vw,3.4rem)] font-medium leading-[0.95] tracking-[-0.035em]">
+            {isSignUp ? 'Start an event.' : 'Welcome back.'}
+          </h1>
+          {!firebaseEnabled && <Notice className="mt-5">Firebase is not configured, so sign-in cannot complete.</Notice>}
 
-      {/* Desktop Floating Logo (Top Left) */}
-      <Link to="/" className="hidden md:flex absolute top-6 left-6 lg:top-10 lg:left-10 z-50 hover:scale-105 transition-transform">
-        <img src="/Lead-X.png" alt="LeadX Logo" className="h-12 lg:h-16 drop-shadow-[2px_2px_0_#111]" />
-      </Link>
-
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-lg bg-white border-4 border-neo-black shadow-[8px_8px_0_#111] sm:shadow-[12px_12px_0_#111] p-5 sm:p-12 relative z-10"
-      >
-        {/* Mobile-Safe Logo (Hidden on Desktop) */}
-        <Link to="/" className="flex md:hidden mb-6 hover:scale-[1.02] transition-transform w-max">
-          <img src="/Lead-X.png" alt="LeadX Logo" className="h-12 sm:h-14 drop-shadow-[2px_2px_0_#111]" />
-        </Link>
-
-        <div className="border-4 border-neo-black px-4 py-1.5 font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] mb-8 w-max flex items-center gap-3 bg-neo-yellow shadow-[4px_4px_0_#111]">
-          <span className="w-2.5 h-2.5 rounded-full border-4 border-neo-black bg-white"></span>
-          {isSignUp ? 'NEW ORGANIZER' : 'SECURE LOGIN'}
-        </div>
-
-        <h2 className="font-hero text-4xl sm:text-6xl tracking-tight mb-8 uppercase leading-none">
-          {isSignUp ? 'START' : 'WELCOME'} <br /> 
-          <span className={isSignUp ? 'bg-neo-yellow px-2 border-4 border-neo-black inline-block mt-2 shadow-[6px_6px_0_#111] -rotate-2' : 'inline-block mt-2'}>{isSignUp ? 'HERE.' : 'BACK.'}</span>
-        </h2>
-
-        {/* Neo-Brutalist OAuth Quick Links */}
-        <div className="flex flex-col gap-4 mb-8">
-          <button 
+          <Button
             type="button"
+            variant="white"
+            className="mt-6 w-full"
             onClick={() => signInWithOAuth(googleProvider)}
             disabled={status.type === 'loading'}
-            className="w-full bg-white border-4 border-neo-black px-4 sm:px-6 py-3 sm:py-4 font-hero text-sm sm:text-xl lg:text-2xl tracking-wide sm:tracking-widest uppercase text-neo-black flex items-center justify-center gap-2 sm:gap-3 hover:-translate-y-1 active:translate-y-0.5 active:shadow-none transition-all shadow-[4px_4px_0_#111] cursor-pointer disabled:opacity-50 text-center leading-tight"
           >
-            <svg className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12.545 11.033v4.354h7.364c-.26 1.895-2.284 5.543-7.364 5.543-4.39 0-7.966-3.64-7.966-8.121 0-4.481 3.576-8.121 7.966-8.121 2.5 0 4.17 1.048 5.127 1.967l3.423-3.379c-2.2-2.057-5.287-3.307-8.55-3.307-7.18 0-13 5.82-13 13s5.82 13 13 13c7.5 0 12.48-5.276 12.48-12.69 0-.854-.09-1.5-.2-2.13h-12.28z"/></svg>
-            <span className="sm:hidden">GOOGLE SIGN IN</span>
-            <span className="hidden sm:inline">CONTINUE WITH GOOGLE</span>
-          </button>
-        </div>
+            Continue with Google
+          </Button>
 
-        <div className="relative flex py-2 items-center mb-8">
-          <div className="flex-grow border-t-4 border-neo-black"></div>
-          <span className="flex-shrink mx-4 font-hero text-2xl text-neo-black bg-neo-yellow border-4 border-neo-black px-3 py-0.5 shadow-[2px_2px_0_#111]">OR</span>
-          <div className="flex-grow border-t-4 border-neo-black"></div>
-        </div>
+          <p className="my-5 text-center text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-500">or email</p>
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="flex flex-col gap-2">
-            <label className="font-black uppercase tracking-[0.2em] text-xs text-gray-500">EMAIL ADDRESS</label>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              type="email"
-              autoComplete="email"
-              className="w-full border-4 border-neo-black bg-neo-white px-4 py-4 font-black text-xl outline-none focus:bg-white focus:-translate-y-1 focus:shadow-brutal transition-all placeholder:text-gray-300"
-              placeholder="organizer@university.edu"
-            />
-          </div>
+          <form onSubmit={onSubmit} className="space-y-4">
+            <Field label="Email" htmlFor="auth-email">
+              <input id="auth-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" className={inputClass} placeholder="you@example.com" />
+            </Field>
+            <Field label="Password" htmlFor="auth-password">
+              <input id="auth-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={isSignUp ? 'new-password' : 'current-password'} className={inputClass} placeholder="••••••••" />
+            </Field>
+            {!isSignUp && (
+              <button type="button" onClick={handleForgotPassword} className={`text-sm font-semibold underline underline-offset-4 ${focus}`}>
+                Forgot password
+              </button>
+            )}
+            <Button type="submit" variant="ink" className="w-full" disabled={!canSubmit || status.type === 'loading'}>
+              {status.type === 'loading' ? 'Working…' : (isSignUp ? 'Create account' : 'Log in')}
+            </Button>
+          </form>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between items-end">
-              <label className="font-black uppercase tracking-[0.2em] text-xs text-gray-500">PASSWORD</label>
-              {!isSignUp && (
-                <button type="button" onClick={handleForgotPassword} className="text-[10px] font-black uppercase tracking-widest text-neo-blue hover:text-neo-black transition-colors underline underline-offset-4">
-                  FORGOT PASSWORD?
-                </button>
+          {status.type !== 'idle' && status.message && (
+            <Notice tone={status.type === 'error' ? 'error' : 'success'} className="mt-4">
+              <span>{status.message}</span>
+              {status.code === 'email-already-in-use' && (
+                <button type="button" className="mt-2 block underline" onClick={() => { setIsSignUp(false); setStatus({ type: 'idle', message: '', code: '' }) }}>Go to log in</button>
               )}
-            </div>
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              type="password"
-              autoComplete="current-password"
-              className="w-full border-4 border-neo-black bg-neo-white px-4 py-4 font-black text-xl outline-none focus:bg-white focus:-translate-y-1 focus:shadow-brutal transition-all placeholder:text-gray-300"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={!canSubmit || status.type === 'loading'}
-            className="w-full mt-6 bg-neo-black border-4 border-neo-black px-6 py-5 font-hero text-2xl sm:text-3xl tracking-[0.12em] sm:tracking-[0.2em] uppercase text-neo-white transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none shadow-[6px_6px_0_#FFD600] disabled:opacity-50 disabled:hover:-translate-x-0 disabled:hover:-translate-y-0 disabled:hover:shadow-[6px_6px_0_#FFD600] group relative overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-neo-yellow translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-out z-0"></div>
-            <span className="relative z-10 group-hover:text-neo-black transition-colors">{status.type === 'loading' ? 'PROCESSING...' : (isSignUp ? 'CREATE ACCOUNT' : 'LOG IN')}</span>
-          </button>
-        </form>
-
-        <AnimatePresence>
-          {status.type !== 'idle' && (
-            <motion.div
-               initial={{ opacity: 0, height: 0 }}
-               animate={{ opacity: 1, height: 'auto' }}
-               exit={{ opacity: 0, height: 0 }}
-               className={`mt-6 border-4 border-neo-black px-4 py-4 font-black uppercase tracking-widest text-sm shadow-brutal-sm ${
-                 status.type === 'error'
-                   ? 'bg-neo-red text-white'
-                   : 'bg-green-400 text-neo-black'
-               }`}
-            >
-              <div className="flex flex-col gap-2">
-                <span>{status.message}</span>
-                {status.code === 'email-already-in-use' && (
-                  <button 
-                    type="button" 
-                    onClick={() => { setIsSignUp(false); setStatus({ type: 'idle', message: '', code: '' }); }}
-                    className="mt-2 text-xs font-black uppercase tracking-widest text-neo-yellow underline underline-offset-4 hover:text-white transition-colors self-start cursor-pointer"
-                  >
-                    GO TO LOG IN &rarr;
-                  </button>
-                )}
-                {status.code === 'user-not-found' && (
-                  <button 
-                    type="button" 
-                    onClick={() => { setIsSignUp(true); setStatus({ type: 'idle', message: '', code: '' }); }}
-                    className="mt-2 text-xs font-black uppercase tracking-widest text-neo-yellow underline underline-offset-4 hover:text-white transition-colors self-start cursor-pointer"
-                  >
-                    GO TO SIGN UP &rarr;
-                  </button>
-                )}
-              </div>
-            </motion.div>
+              {status.code === 'user-not-found' && (
+                <button type="button" className="mt-2 block underline" onClick={() => { setIsSignUp(true); setStatus({ type: 'idle', message: '', code: '' }) }}>Go to sign up</button>
+              )}
+            </Notice>
           )}
-        </AnimatePresence>
 
-        <div className="mt-10 pt-6 border-t-4 border-neo-black text-center">
-          <button 
-            type="button" 
-            onClick={() => { setIsSignUp(!isSignUp); setStatus({ type: 'idle', message: '' }); }}
-            className="text-sm font-black uppercase tracking-[0.1em] text-gray-500 hover:text-neo-black hover:underline underline-offset-8 transition-all"
-          >
-            {isSignUp ? "ALREADY HAVE AN ACCOUNT? LOG IN" : "NEED AN ACCOUNT? SIGN UP"}
-          </button>
-        </div>
-      </motion.div>
-    </div>
+          <div className="mt-6 border-t border-neo-black/15 pt-4 text-center">
+            <button type="button" onClick={() => { setIsSignUp(!isSignUp); setStatus({ type: 'idle', message: '' }) }} className={`text-sm font-semibold underline underline-offset-4 ${focus}`}>
+              {isSignUp ? 'Already have an account? Log in' : 'Need an account? Sign up'}
+            </button>
+          </div>
+        </Card>
+      </div>
+    </PageShell>
   )
 }

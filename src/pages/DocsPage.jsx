@@ -1,34 +1,30 @@
-import { Link } from 'react-router-dom'
+import { AppBar, Button, Card, PageMain, PageShell, prose } from '../ui/ui.jsx'
 
 export default function DocsPage() {
   return (
-    <div className="min-h-screen bg-[#F4F4F0] flex flex-col font-base text-[#111] selection:bg-[#FFD600] selection:text-[#111] overflow-x-hidden">
-      <nav className="w-full flex flex-col sm:flex-row items-center justify-between px-4 sm:px-8 py-5 border-b-2 border-[#111] bg-[#F4F4F0] gap-3 sm:gap-0">
-        <Link to="/" className="font-hero text-2xl font-bold tracking-widest flex items-center gap-2 hover:scale-105 transition-transform">
-          LEADERBOARD
-        </Link>
-        <div className="flex items-center gap-4 sm:gap-8">
-          <Link to="/login" className="font-bold text-xs sm:text-sm uppercase tracking-wide sm:tracking-widest bg-[#FFD600] border-2 border-[#111] px-4 sm:px-6 py-2 shadow-[4px_4px_0_#111] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all">
-            GET STARTED
-          </Link>
-        </div>
-      </nav>
-
-      <main className="flex-1 max-w-4xl mx-auto w-full p-4 sm:p-8 py-12 sm:py-20">
-        <h1 className="font-hero text-4xl sm:text-6xl tracking-tight uppercase mb-8">Documentation</h1>
-        <div className="border-2 border-[#111] bg-white p-5 sm:p-8 shadow-[8px_8px_0_#111]">
-          <h2 className="font-hero text-3xl mb-4">Welcome to Leaderboard</h2>
-          <p className="text-lg font-medium leading-relaxed mb-6">
-            This platform allows you to spin up isolated, multi-tenant scoring environments for your events. It supports real-time synchronization, distinct hardware/software tracks, and dynamic rubrics.
+    <PageShell>
+      <AppBar>
+        <Button to="/login?mode=signup" size="sm">Get started</Button>
+      </AppBar>
+      <PageMain className="max-w-3xl">
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-600">Docs</p>
+        <h1 className="mt-2 font-hero text-[clamp(2.4rem,5vw,3.6rem)] font-medium leading-[0.95] tracking-[-0.035em]">
+          How an event is run
+        </h1>
+        <Card className="mt-8 p-5 sm:p-8">
+          <h2 className="font-hero text-2xl tracking-[-0.03em]">A board, two desks</h2>
+          <p className={`mt-3 ${prose}`}>
+            LeadX is a live leaderboard for a judged event. Create an event from the dashboard, define tracks, rounds, and rubrics in the admin panel, add judges, and open the public board.
           </p>
-          <ul className="list-disc list-inside text-lg font-medium space-y-2">
-            <li>Create an event from the Dashboard.</li>
-            <li>Define your rubrics in the Admin Panel.</li>
-            <li>Add Judges and provide them with the event link.</li>
-            <li>Watch the public leaderboard update in real-time.</li>
-          </ul>
-        </div>
-      </main>
-    </div>
+          <ol className={`mt-6 list-decimal space-y-2 pl-5 ${prose}`}>
+            <li>Create an event from the dashboard. The code is the public address.</li>
+            <li>Add tracks and rounds, then a rubric for each round.</li>
+            <li>Add judges and teams. A CSV can create many teams at once.</li>
+            <li>Judges score from their login. The public page ranks each track as scores are saved.</li>
+            <li>Freeze the board for the hold, then reveal. Confetti runs for 15 seconds. The podium page steps through places.</li>
+          </ol>
+        </Card>
+      </PageMain>
+    </PageShell>
   )
 }

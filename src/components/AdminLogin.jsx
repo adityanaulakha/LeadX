@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
+import { Button, Card, Field, Notice, inputClass } from '../ui/ui.jsx'
 
-export default function AdminLogin({ title = "Admin Login", subtitle = "Organizer Access" }) {
+export default function AdminLogin({ title = 'Sign in', subtitle = 'Account' }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [status, setStatus] = useState({ type: 'idle', message: '' })
@@ -17,10 +18,10 @@ export default function AdminLogin({ title = "Admin Login", subtitle = "Organize
       if (!auth) throw new Error('Firebase Auth not configured')
       if (isSignUp) {
         await createUserWithEmailAndPassword(auth, email.trim(), password)
-        setStatus({ type: 'success', message: 'Account created!' })
+        setStatus({ type: 'success', message: 'Account created.' })
       } else {
         await signInWithEmailAndPassword(auth, email.trim(), password)
-        setStatus({ type: 'success', message: 'Signed in' })
+        setStatus({ type: 'success', message: 'Signed in.' })
       }
     } catch (err) {
       setStatus({ type: 'error', message: err?.message || 'Authentication failed' })
@@ -28,67 +29,30 @@ export default function AdminLogin({ title = "Admin Login", subtitle = "Organize
   }
 
   return (
-    <div className="rounded-none border-4 border-spidey-blue bg-zinc-900 p-8 shadow-comic-cyan relative">
-      <div className="absolute top-0 right-0 w-8 h-8 bg-gwen-pink"></div>
-      <div className="text-sm font-bold uppercase tracking-[0.2em] text-gwen-cyan">{subtitle}</div>
-      <h2 className="mt-2 font-hero text-4xl text-zinc-100 tracking-wide">{title}</h2>
-
-      <form onSubmit={onSubmit} className="mt-6 space-y-6">
-        <label className="block">
-          <div className="text-sm font-bold uppercase tracking-[0.18em] text-zinc-300">Email</div>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            autoComplete="email"
-            className="mt-2 w-full rounded-none border-2 border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none focus:border-gwen-cyan focus:shadow-comic-cyan transition-all"
-            placeholder="organizer@glau.ac.in"
-          />
-        </label>
-
-        <label className="block">
-          <div className="text-sm font-bold uppercase tracking-[0.18em] text-zinc-300">Password</div>
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            autoComplete="current-password"
-            className="mt-2 w-full rounded-none border-2 border-zinc-700 bg-zinc-950 px-4 py-3 text-sm text-zinc-100 outline-none focus:border-gwen-cyan focus:shadow-comic-cyan transition-all"
-            placeholder="••••••••"
-          />
-        </label>
-
+    <Card className="p-5 sm:p-6">
+      <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-600">{subtitle}</p>
+      <h2 className="mt-1 font-hero text-3xl tracking-[-0.03em]">{title}</h2>
+      <form onSubmit={onSubmit} className="mt-5 space-y-4">
+        <Field label="Email" htmlFor="admin-email">
+          <input id="admin-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" className={inputClass} />
+        </Field>
+        <Field label="Password" htmlFor="admin-password">
+          <input id="admin-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" className={inputClass} />
+        </Field>
+        <Button type="submit" variant="ink" className="w-full" disabled={!canSubmit || status.type === 'loading'}>
+          {status.type === 'loading' ? 'Working…' : (isSignUp ? 'Create account' : 'Sign in')}
+        </Button>
         <button
-          type="submit"
-          disabled={!canSubmit || status.type === 'loading'}
-          className="w-full rounded-none border-4 border-zinc-900 bg-gwen-cyan px-6 py-3 font-hero text-2xl tracking-wider text-zinc-900 transition-all hover:-translate-y-1 hover:-translate-x-1 hover:bg-gwen-pink hover:shadow-comic shadow-[4px_4px_0px_#111] disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0px_#111]"
+          type="button"
+          onClick={() => { setIsSignUp(!isSignUp); setStatus({ type: 'idle', message: '' }) }}
+          className="text-sm font-semibold underline underline-offset-4"
         >
-          {status.type === 'loading' ? 'Authenticating…' : (isSignUp ? 'Create Account' : 'Sign in')}
+          {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
         </button>
-        
-        <div className="text-center mt-4">
-          <button 
-            type="button" 
-            onClick={() => { setIsSignUp(!isSignUp); setStatus({ type: 'idle', message: '' }); }}
-            className="text-xs font-bold text-zinc-400 hover:text-white uppercase tracking-widest underline underline-offset-4 cursor-pointer"
-          >
-            {isSignUp ? 'Already have an account? Sign In' : 'Need a Judge ID? Sign Up'}
-          </button>
-        </div>
-
-        {status.type !== 'idle' ? (
-          <div
-            className={[
-              'rounded-none border-2 px-4 py-3 text-sm font-bold shadow-comic',
-              status.type === 'error'
-                ? 'border-spidey-red bg-spidey-red/20 text-spidey-red'
-                : 'border-gwen-cyan bg-gwen-cyan/20 text-gwen-cyan',
-            ].join(' ')}
-          >
-            {status.message}
-          </div>
-        ) : null}
+        {status.type !== 'idle' && status.type !== 'loading' && (
+          <Notice tone={status.type === 'error' ? 'error' : 'success'}>{status.message}</Notice>
+        )}
       </form>
-    </div>
+    </Card>
   )
 }
